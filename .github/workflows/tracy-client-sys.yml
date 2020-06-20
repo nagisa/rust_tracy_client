@@ -20,7 +20,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
+        with:
+            submodules: 'recursive'
       - name: Install Rust ${{ matrix.rust_toolchain }}
         uses: actions-rs/toolchain@v1
         with:
@@ -59,7 +62,10 @@ jobs:
           # Only 64 bit GCC is preinstalled
           #- i686-pc-windows-gnu
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v2
+        with:
+            submodules: 'recursive'
       - name: Install Rust nightly
         uses: actions-rs/toolchain@v1
         with:
