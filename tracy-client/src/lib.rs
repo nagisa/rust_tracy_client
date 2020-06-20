@@ -1,3 +1,9 @@
+//! This crate is a set of safe bindings to the client library of the [Tracy profiler].
+//!
+//! If you have already instrumented your application with `tracing`, consider `tracing-tracy`.
+//!
+//! [Tracy profiler]: https://github.com/wolfpld/tracy
+
 use std::alloc;
 #[doc(hidden)]
 pub use tracy_client_sys as sys;
@@ -8,11 +14,10 @@ pub struct Span(sys::TracyCZoneCtx);
 impl Span {
     /// Start a new Tracy span.
     ///
-    /// This function allocates the span information. If you have null terminated strings for
-    /// `name`, `function` and `file` consider `Span::new_unchecked`.
+    /// This function allocates the span information on the heap until it is read out by the
+    /// profiler.
     ///
-    /// `callstack_depth` specifies the maximum number of frames stacktrace collection should
-    /// evaluate.
+    /// `callstack_depth` specifies the maximum number of stack frames client should collect.
     pub fn new(name: &str, function: &str, file: &str, line: u32, callstack_depth: u16) -> Self {
         unsafe {
             sys::___tracy_init_thread();
@@ -135,7 +140,7 @@ unsafe impl<T: alloc::GlobalAlloc> alloc::GlobalAlloc for ProfiledAllocator<T> {
 /// In case you want to annotate secondary continuous frame sets, call the macro with a string
 /// argument.
 ///
-/// For non-continuous frame sets see [`Frame`](tracy_client::Frame).
+/// For non-continuous frame sets see [`Frame`](Frame).
 ///
 /// # Examples
 ///
@@ -174,7 +179,7 @@ macro_rules! start_noncontinuous_frame {
 
 /// A non-continuous frame region.
 ///
-/// Create with the [`start_noncontinuous_frame`](tracy_client::start_noncontinuous_frame) macro.
+/// Create with the [`start_noncontinuous_frame`](start_noncontinuous_frame) macro.
 pub struct Frame(&'static str);
 
 impl Frame {
@@ -193,6 +198,9 @@ impl Drop for Frame {
     }
 }
 
+/// Output a message.
+///
+/// `callstack_depth` specifies the maximum number of stack frames client should collect.
 pub fn message(message: &str, callstack_depth: u16) {
     unsafe {
         sys::___tracy_emit_message(message.as_ptr() as _, message.len(), callstack_depth.into())
@@ -217,7 +225,7 @@ macro_rules! create_plot {
 
 /// A plot for plotting arbitary `f64` values.
 ///
-/// Create with [`create_plot`](tracy_client::create_plot) macro.
+/// Create with [`create_plot`](create_plot) macro.
 pub struct Plot(&'static str);
 
 impl Plot {
