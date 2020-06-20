@@ -1,0 +1,21 @@
+[package]
+name = "tracing-tracy"
+version = "0.1.0"
+authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
+license = "MIT/Apache-2.0"
+edition = "2018"
+readme = "../README.mkd"
+repository = "https://github.com/nagisa/rust_tracy_client"
+homepage = "https://github.com/nagisa/rust_tracy_client"
+documentation = "https://docs.rs/tracing-tracy"
+description = """
+Inspect tracing-enabled Rust applications with Tracy
+"""
+
+[dependencies]
+tracing-core = "0.1"
+tracing-subscriber = "0.2"
+tracy-client = "0.7"
+
+[dev-dependencies]
+tracing = "0.1"
