@@ -1,0 +1,3 @@
+# Rust client bindings for the Tracy profiler
+
+See [Tracy profiler](https://github.com/wolfpld/tracy).
