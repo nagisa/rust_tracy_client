@@ -1,2 +1,3 @@
 tracy-client-sys/target
+tracy-client/target
 Cargo.lock

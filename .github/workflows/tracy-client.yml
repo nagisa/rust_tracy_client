@@ -1,0 +1,52 @@
+name: Test tracy-client
+
+on:
+  push:
+    paths:
+    - 'tracy-client/**'
+    - '.github/workflows/tracy-client.yml'
+    - '!tracy-client/**.mkd'
+    - '!tracy-client/LICENSE-*'
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  native-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_toolchain: [nightly, stable, 1.40.0]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+        with:
+            submodules: 'recursive'
+      - name: Install Rust ${{ matrix.rust_toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust_toolchain }}
+            profile: minimal
+            default: true
+      - name: Update
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          args: --manifest-path=tracy-client/Cargo.toml
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path=tracy-client/Cargo.toml
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracy-client/Cargo.toml -- --nocapture
+      - name: Test Release
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracy-client/Cargo.toml --release -- --nocapture

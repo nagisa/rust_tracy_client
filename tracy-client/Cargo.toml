@@ -1,0 +1,16 @@
+[package]
+name = "tracy-client"
+version = "0.7.0"
+authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
+license = "MIT/Apache-2.0"
+edition = "2018"
+readme = "../README.mkd"
+repository = "https://github.com/nagisa/rust_tracy_client"
+homepage = "https://github.com/nagisa/rust_tracy_client"
+documentation = "https://docs.rs/tracy-client"
+description = """
+High level bindings to the client libraries for the Tracy profiler
+"""
+
+[dependencies]
+tracy-client-sys = "0.7.0"
