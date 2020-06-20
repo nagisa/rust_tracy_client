@@ -1,3 +1,10 @@
+//! Collect [Tracy] profiles in tracing-enabled applications.
+//!
+//! Assuming the application is well instrumented, this should
+//! in practice be a very low effort way to gain great amounts of insight into an application.
+//!
+//! [Tracy]: https://github.com/wolfpld/tracy
+
 use std::fmt::Write;
 use tracing_core::{
     field::{Field, Visit},
@@ -11,17 +18,23 @@ use tracing_subscriber::{
 
 use tracy_client::{Span, message, finish_continuous_frame};
 
-
+/// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
 pub struct TracyLayer {
     stack_depth: u16,
 }
 
 impl TracyLayer {
+    /// Create a new `TracyLayer`.
+    ///
+    /// Defaults to collecting stack traces.
     pub fn new() -> Self {
         Self { stack_depth: 64 }
     }
 
+    /// Specify the maximum number of stack frames that will be collected.
+    ///
+    /// Specifying 0 frames will disable stack trace collection.
     pub fn with_stackdepth(mut self, stack_depth: u16) -> Self {
         self.stack_depth = stack_depth;
         self
@@ -67,15 +80,11 @@ where
             frame_mark: false,
         };
         event.record(&mut visitor);
-
-        // SAFE: The `visitor.dest` must be pointing to a valid value, given it is a String.
-        unsafe {
-            if !visitor.first {
-                message(&visitor.dest, self.stack_depth)
-            }
-            if visitor.frame_mark {
-                finish_continuous_frame!();
-            }
+        if !visitor.first {
+            message(&visitor.dest, self.stack_depth)
+        }
+        if visitor.frame_mark {
+            finish_continuous_frame!();
         }
     }
 }
@@ -88,6 +97,8 @@ struct TracyEventFieldVisitor {
 
 impl Visit for TracyEventFieldVisitor {
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+        // FIXME: this is a very crude formatter, but we don’t have
+        // an easy way to do anything better...
         if self.first {
             let _ = write!(&mut self.dest, "{} = {:?}", field.name(), value);
             self.first = false;
@@ -122,28 +133,20 @@ mod tests {
     #[test]
     fn it_works() {
         setup_subscriber();
-        for _ in 0..6 {
-            let span = span!(Level::TRACE, "a sec");
-            let _enter = span.enter();
-
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            event!(Level::INFO, "EXPLOSION!");
-        }
+        let span = span!(Level::TRACE, "a sec");
+        let _enter = span.enter();
+        event!(Level::INFO, "EXPLOSION!");
     }
 
     #[test]
     fn it_works_2() {
         setup_subscriber();
-        for _ in 0..4 {
-            let span = span!(Level::TRACE, "2 secs");
-            let _enter = span.enter();
-
-            std::thread::sleep(std::time::Duration::from_secs(2));
-            event!(
-                Level::INFO,
-                message = "DOUBLE THE EXPLOSION!",
-                tracy.frame_mark = true
-            );
-        }
+        let span = span!(Level::TRACE, "2 secs");
+        let _enter = span.enter();
+        event!(
+            Level::INFO,
+            message = "DOUBLE THE EXPLOSION!",
+            tracy.frame_mark = true
+        );
     }
 }
