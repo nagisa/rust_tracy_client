@@ -1,10 +1,17 @@
 [package]
 name = "tracy-client-sys"
 version = "0.7.0"
-authors = ["Simonas Kazlauskas <tracy-sys@kazlauskas.me>"]
+authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
+build = "build.rs"
+license = "MIT/Apache-2.0"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+readme = "../README.mkd"
+repository = "https://github.com/nagisa/rust_tracy_client"
+homepage = "https://github.com/nagisa/rust_tracy_client"
+documentation = "https://docs.rs/tracy-client-sys"
+description = """
+Low level bindings to the client libraries for the Tracy profiler
+"""
 
 [dependencies]
 

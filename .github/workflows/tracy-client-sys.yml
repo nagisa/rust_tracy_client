@@ -1,0 +1,77 @@
+name: Test tracy-client-sys
+
+on:
+  push:
+    paths:
+    - 'tracy-client-sys/**'
+    - '.github/workflows/tracy-client-sys.yml'
+    - '!tracy-client-sys/**.mkd'
+    - '!tracy-client-sys/LICENSE-*'
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  native-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_toolchain: [nightly, stable, 1.40.0]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust ${{ matrix.rust_toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust_toolchain }}
+            profile: minimal
+            default: true
+      - name: Update
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          args: --manifest-path=tracy-client-sys/Cargo.toml
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path=tracy-client-sys/Cargo.toml
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracy-client-sys/Cargo.toml -- --nocapture
+      - name: Test Release
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracy-client-sys/Cargo.toml --release -- --nocapture
+
+  windows-gnu-test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_toolchain: [nightly, stable]
+        rust_target:
+          - x86_64-pc-windows-gnu
+          # Only 64 bit GCC is preinstalled
+          #- i686-pc-windows-gnu
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust_toolchain }}
+            target: ${{ matrix.rust_target }}
+            profile: minimal
+            default: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target ${{ matrix.rust_target }} --manifest-path=tracy-client-sys/Cargo.toml
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --target ${{ matrix.rust_target }} --manifest-path=tracy-client-sys/Cargo.toml
