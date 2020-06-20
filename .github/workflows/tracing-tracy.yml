@@ -1,0 +1,52 @@
+name: Test tracing-tracy
+
+on:
+  push:
+    paths:
+    - 'tracing-tracy/**'
+    - '.github/workflows/tracing-tracy.yml'
+    - '!tracing-tracy/**.mkd'
+    - '!tracing-tracy/LICENSE-*'
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  native-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_toolchain: [nightly, stable, 1.40.0]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+        with:
+            submodules: 'recursive'
+      - name: Install Rust ${{ matrix.rust_toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust_toolchain }}
+            profile: minimal
+            default: true
+      - name: Update
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          args: --manifest-path=tracing-tracy/Cargo.toml
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path=tracing-tracy/Cargo.toml
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracing-tracy/Cargo.toml -- --nocapture
+      - name: Test Release
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path=tracing-tracy/Cargo.toml --release -- --nocapture
