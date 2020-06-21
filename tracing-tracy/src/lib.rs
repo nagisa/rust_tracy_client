@@ -35,7 +35,7 @@
 use std::{fmt::Write, collections::VecDeque, cell::RefCell};
 use tracing_core::{
     field::{Field, Visit},
-    span::{Attributes, Id},
+    span::Id,
     Event, Subscriber,
 };
 use tracing_subscriber::{
@@ -98,7 +98,7 @@ where
         }
     }
 
-    fn on_exit(&self, id: &Id, ctx: Context<S>) {
+    fn on_exit(&self, id: &Id, _: Context<S>) {
         TRACY_SPAN_STACK.with(|s| {
             if let Some((span, span_id)) = s.borrow_mut().pop_back() {
                 if id.into_u64() != span_id {
@@ -164,8 +164,10 @@ impl Visit for TracyEventFieldVisitor {
 
 #[cfg(test)]
 mod tests {
-    use tracing::{event, span, Level};
+    use tracing::{event, span, debug, info, Level};
     use tracing_subscriber::layer::SubscriberExt;
+    use futures::future::join_all;
+    use tracing_attributes::instrument;
 
     fn setup_subscriber() {
         static ONCE: std::sync::Once = std::sync::Once::new();
@@ -230,7 +232,40 @@ mod tests {
         let span = Box::leak(Box::new(span!(Level::INFO, "exit in different thread")));
         let entry = span.enter();
         let thread = std::thread::spawn(|| drop(entry));
-        thread.join();
+        thread.join().unwrap();
     }
 
+    #[instrument]
+    async fn parent_task(subtasks: usize) {
+        info!("spawning subtasks...");
+        let subtasks = (1..=subtasks)
+            .map(|number| {
+                debug!(message = "creating subtask;", number);
+                subtask(number)
+            })
+            .collect::<Vec<_>>();
+
+        let result = join_all(subtasks).await;
+
+        debug!("all subtasks completed");
+        let sum: usize = result.into_iter().sum();
+        info!(sum);
+    }
+
+    #[instrument]
+    async fn subtask(number: usize) -> usize {
+        info!("sleeping in subtask {}...", number);
+        tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
+        info!("sleeping in subtask {}...", number);
+        tokio::time::delay_for(std::time::Duration::from_millis(number as _)).await;
+        info!("sleeping in subtask {}...", number);
+        tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
+        number
+    }
+
+    #[tokio::test]
+    async fn async_futures() {
+        setup_subscriber();
+        parent_task(5).await;
+    }
 }
