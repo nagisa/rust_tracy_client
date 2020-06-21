@@ -20,7 +20,7 @@ use std::alloc;
 pub use tracy_client_sys as sys;
 
 /// A handle representing a span of execution.
-pub struct Span(sys::TracyCZoneCtx);
+pub struct Span(sys::TracyCZoneCtx, std::marker::PhantomData<*mut sys::TracyCZoneCtx>);
 
 impl Span {
     /// Start a new Tracy span.
@@ -42,13 +42,13 @@ impl Span {
                 name.len(),
             );
             if callstack_depth == 0 {
-                Self(sys::___tracy_emit_zone_begin_alloc(loc, 1))
+                Self(sys::___tracy_emit_zone_begin_alloc(loc, 1), std::marker::PhantomData)
             } else {
                 Self(sys::___tracy_emit_zone_begin_alloc_callstack(
                     loc,
                     callstack_depth.into(),
                     1,
-                ))
+                ), std::marker::PhantomData)
             }
         }
     }
@@ -236,7 +236,7 @@ macro_rules! create_plot {
 
 /// A plot for plotting arbitary `f64` values.
 ///
-/// Create with [`create_plot`](create_plot) macro.
+/// Create with the [`create_plot`](create_plot) macro.
 pub struct Plot(&'static str);
 
 impl Plot {
