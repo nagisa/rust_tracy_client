@@ -50,3 +50,13 @@ jobs:
         with:
           command: test
           args: --manifest-path=tracing-tracy/Cargo.toml --release -- --nocapture
+      - name: Build (no features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path=tracing-tracy/Cargo.toml --no-default-features
+      - name: Build (all features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path=tracing-tracy/Cargo.toml --all-features

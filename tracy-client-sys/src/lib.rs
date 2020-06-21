@@ -18,62 +18,75 @@ pub struct TracyCZoneCtx {
     pub active: c_int,
 }
 
-extern "C" {
-    pub fn ___tracy_init_thread();
-    pub fn ___tracy_alloc_srcloc(
-        line: u32,
-        source: *const c_char,
-        source_len: usize,
-        function: *const c_char,
-        function_len: usize
-    ) -> u64;
-    pub fn ___tracy_alloc_srcloc_name(
-        line: u32,
-        source: *const c_char,
-        source_len: usize,
-        function: *const c_char,
-        function_len: usize,
-        name: *const c_char,
-        name_len: usize
-    ) -> u64;
-    pub fn ___tracy_emit_zone_begin(
-        srcloc: *const ___tracy_source_location_data,
-        active: c_int
-    ) -> TracyCZoneCtx;
-    pub fn ___tracy_emit_zone_begin_callstack(
-        srcloc: *const ___tracy_source_location_data,
-        depth: c_int,
-        active: c_int
-    ) -> TracyCZoneCtx;
-    pub fn ___tracy_emit_zone_begin_alloc(
-        srcloc: u64,
-        active: c_int
-    ) -> TracyCZoneCtx;
-    pub fn ___tracy_emit_zone_begin_alloc_callstack(
-        srcloc: u64,
-        depth: c_int,
-        active: c_int
-    ) -> TracyCZoneCtx;
-
-    pub fn ___tracy_emit_zone_end(ctx: TracyCZoneCtx);
-    pub fn ___tracy_emit_zone_text(ctx: TracyCZoneCtx, txt: *const c_char, size: usize);
-    pub fn ___tracy_emit_zone_name(ctx: TracyCZoneCtx, txt: *const c_char, size: usize);
-    pub fn ___tracy_emit_zone_value(ctx: TracyCZoneCtx, value: u64);
-    pub fn ___tracy_emit_memory_alloc(ptr: *const c_void, size: usize);
-    pub fn ___tracy_emit_memory_alloc_callstack(ptr: *const c_void, size: usize, depth: c_int);
-    pub fn ___tracy_emit_memory_free(ptr: *const c_void);
-    pub fn ___tracy_emit_memory_free_callstack(ptr: *const c_void, depth: c_int);
-    pub fn ___tracy_emit_message( txt: *const c_char, size: usize, callstack: c_int);
-    pub fn ___tracy_emit_messageL( txt: *const c_char, callstack: c_int);
-    pub fn ___tracy_emit_messageC( txt: *const c_char, size: usize, color: u32, callstack: c_int);
-    pub fn ___tracy_emit_messageLC( txt: *const c_char, color: u32, callstack: c_int);
-    pub fn ___tracy_emit_frame_mark(name: *const c_char);
-    pub fn ___tracy_emit_frame_mark_start(name: *const c_char);
-    pub fn ___tracy_emit_frame_mark_end(name: *const c_char);
-    pub fn ___tracy_emit_frame_image(image: *const c_void, w: u16, h: u16, offset: u8, flip: c_int);
-    pub fn ___tracy_emit_plot(name: *const c_char, val: f64);
-    pub fn ___tracy_emit_message_appinfo(txt: *const c_char, size: usize);
+#[cfg(feature="enable")]
+macro_rules! enabled_fn {
+    (pub $($tokens: tt)*) => {
+        extern "C" { pub $($tokens)*; }
+    };
 }
+
+#[cfg(not(feature="enable"))]
+macro_rules! enabled_fn {
+    (pub $($tokens: tt)*) => {
+        #[allow(non_snake_case, unused_variables)]
+        #[inline(always)]
+        pub unsafe extern "C" $($tokens)* { std::mem::zeroed() }
+    };
+}
+
+enabled_fn! { pub fn ___tracy_init_thread() }
+enabled_fn! { pub fn ___tracy_alloc_srcloc(
+    line: u32,
+    source: *const c_char,
+    source_len: usize,
+    function: *const c_char,
+    function_len: usize
+) -> u64 }
+enabled_fn! { pub fn ___tracy_alloc_srcloc_name(
+    line: u32,
+    source: *const c_char,
+    source_len: usize,
+    function: *const c_char,
+    function_len: usize,
+    name: *const c_char,
+    name_len: usize
+) -> u64 }
+enabled_fn! { pub fn ___tracy_emit_zone_begin(
+    srcloc: *const ___tracy_source_location_data,
+    active: c_int
+) -> TracyCZoneCtx }
+enabled_fn! { pub fn ___tracy_emit_zone_begin_callstack(
+    srcloc: *const ___tracy_source_location_data,
+    depth: c_int,
+    active: c_int
+) -> TracyCZoneCtx }
+enabled_fn! { pub fn ___tracy_emit_zone_begin_alloc(
+    srcloc: u64,
+    active: c_int
+) -> TracyCZoneCtx }
+enabled_fn! { pub fn ___tracy_emit_zone_begin_alloc_callstack(
+    srcloc: u64,
+    depth: c_int,
+    active: c_int
+) -> TracyCZoneCtx }
+enabled_fn! { pub fn ___tracy_emit_zone_end(ctx: TracyCZoneCtx) }
+enabled_fn! { pub fn ___tracy_emit_zone_text(ctx: TracyCZoneCtx, txt: *const c_char, size: usize) }
+enabled_fn! { pub fn ___tracy_emit_zone_name(ctx: TracyCZoneCtx, txt: *const c_char, size: usize) }
+enabled_fn! { pub fn ___tracy_emit_zone_value(ctx: TracyCZoneCtx, value: u64) }
+enabled_fn! { pub fn ___tracy_emit_memory_alloc(ptr: *const c_void, size: usize) }
+enabled_fn! { pub fn ___tracy_emit_memory_alloc_callstack(ptr: *const c_void, size: usize, depth: c_int) }
+enabled_fn! { pub fn ___tracy_emit_memory_free(ptr: *const c_void) }
+enabled_fn! { pub fn ___tracy_emit_memory_free_callstack(ptr: *const c_void, depth: c_int) }
+enabled_fn! { pub fn ___tracy_emit_message( txt: *const c_char, size: usize, callstack: c_int) }
+enabled_fn! { pub fn ___tracy_emit_messageL( txt: *const c_char, callstack: c_int) }
+enabled_fn! { pub fn ___tracy_emit_messageC( txt: *const c_char, size: usize, color: u32, callstack: c_int) }
+enabled_fn! { pub fn ___tracy_emit_messageLC( txt: *const c_char, color: u32, callstack: c_int) }
+enabled_fn! { pub fn ___tracy_emit_frame_mark(name: *const c_char) }
+enabled_fn! { pub fn ___tracy_emit_frame_mark_start(name: *const c_char) }
+enabled_fn! { pub fn ___tracy_emit_frame_mark_end(name: *const c_char) }
+enabled_fn! { pub fn ___tracy_emit_frame_image(image: *const c_void, w: u16, h: u16, offset: u8, flip: c_int) }
+enabled_fn! { pub fn ___tracy_emit_plot(name: *const c_char, val: f64) }
+enabled_fn! { pub fn ___tracy_emit_message_appinfo(txt: *const c_char, size: usize) }
 
 #[cfg(test)]
 mod tests {

@@ -16,4 +16,18 @@ Low level bindings to the client libraries for the Tracy profiler
 [dependencies]
 
 [build-dependencies]
-cc = "1"
+cc = { version = "1", default-features = false }
+
+[features]
+default = [ "enable" ]
+# Enable Tracy. Once this is enable tracy will be initialized at program startup. If not specified,
+# the tracy functions are mocked out to no-ops.
+enable = []
+# Enable delayed init support. Tracy will initialize on first use, rather than during
+# life-before-main.
+delayed-init = []
+# Enable support for running with low resolution timers.
+lowres-timer = []
+# Do not exit when program finishes execution or crashes. Can also by sent by environment variable
+# `TRACY_NO_EXIT`.
+noexit = []

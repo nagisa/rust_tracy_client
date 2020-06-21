@@ -13,9 +13,16 @@ Inspect tracing-enabled Rust applications with Tracy
 """
 
 [dependencies]
-tracing-core = "0.1"
-tracing-subscriber = "0.2"
-tracy-client = "0.7"
+tracing-core = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.2", default-features = false, features = ["registry"] }
+tracy-client = { version = "0.7", default-features = false }
 
 [dev-dependencies]
-tracing = "0.1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[features]
+default = [ "enable" ]
+enable = [ "tracy-client/enable" ]
+delayed-init = [ "tracy-client/delayed-init" ]
+lowres-timer = [ "tracy-client/lowres-timer" ]
+noexit = [ "tracy-client/noexit" ]
