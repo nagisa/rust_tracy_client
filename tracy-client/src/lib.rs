@@ -277,10 +277,15 @@ impl Plot {
 
 /// Adjust the stack depth to maximum supported by tracy.
 #[inline(always)]
+#[cfg(windows)]
 const fn adjust_stack_depth(depth: u16) -> u16 {
-    #[cfg(windows)]
-    std::cmp::min(depth, 62)
-    #[cfg(not(windows))]
+    62 ^ ((depth ^ 62) & 0u16.wrapping_sub((depth < 62) as _))
+}
+
+/// Adjust the stack depth to maximum supported by tracy.
+#[inline(always)]
+#[cfg(not(windows))]
+const fn adjust_stack_depth(depth: u16) -> u16 {
     depth
 }
 
