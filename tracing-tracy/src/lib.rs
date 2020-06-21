@@ -1,7 +1,34 @@
 //! Collect [Tracy] profiles in tracing-enabled applications.
 //!
-//! Assuming the application is well instrumented, this should
-//! in practice be a very low effort way to gain great amounts of insight into an application.
+//! Assuming the application is well instrumented, this should in practice be a very low effort way
+//! to gain great amounts of insight into an application performance.
+//!
+//! Note, however that Tracy is ultimately a profiling, not an observability, tool. As thus, some
+//! of tracing concepts cannot be represented well by Tracy. For instance, out-of-order span
+//! entries and exits, are not supported, and neither are spans that are entered and exited on
+//! different threads. This crate will attempt to mitigate the problems and retain trace validity
+//! at the cost of potentially invalid data. When such a mitigation occurs, trace will contain a
+//! message with a note about the problem.
+//!
+//! Some other caveats to keep in mind:
+//!
+//! * Only span entries and exits are recorded;
+//! * Events show up as messages in Tracy, however Tracy can struggle with large numbers of
+//! messages;
+//! * Some additional functionality such as plotting and memory allocation profiling is only
+//! available as part of the [tracy-client](tracy_client) crate.
+//!
+//! # Important note
+//!
+//! Unlike with many other subscriber implementations, simply depending on this crate is sufficient
+//! for tracy to be enabled at program startup, even if [`TracyLayer`](TracyLayer) is not
+//! registered as a subscriber. While not registering a `TracyLayer` will avoid Tracy from
+//! collecting spans, it still broadcasts discovery packets to the local network and exposes the
+//! data it collects in the background to that same network. Traces collected by Tracy may include
+//! source and assembly code as well.
+//!
+//! As thus, you may want make sure to only enable the `tracing-tracy` crate conditionally, via the
+//! `enable` feature flag provided by this crate.
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
 
