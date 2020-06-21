@@ -32,10 +32,10 @@
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
 
-use std::fmt::Write;
+use std::{fmt::Write, collections::VecDeque, cell::RefCell};
 use tracing_core::{
     field::{Field, Visit},
-    span::Id,
+    span::{Attributes, Id},
     Event, Subscriber,
 };
 use tracing_subscriber::{
@@ -43,7 +43,13 @@ use tracing_subscriber::{
     registry,
 };
 
-use tracy_client::{Span, message, finish_continuous_frame};
+use tracy_client::{Span, color_message, message, finish_continuous_frame};
+
+thread_local! {
+    /// A stack of spans currently active on the current thread.
+    static TRACY_SPAN_STACK: RefCell<VecDeque<(Span, u64)>> =
+        RefCell::new(VecDeque::with_capacity(16));
+}
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
@@ -78,26 +84,40 @@ impl<S> Layer<S> for TracyLayer
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
 {
-    fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
+    fn on_enter(&self, id: &Id, ctx: Context<S>) {
         if let Some(span_data) = ctx.span(id) {
             let metadata = span_data.metadata();
-            // FIXME: look into adjusting tracy so allocating CStrings is not necessary.
-            //
-            // OTOH the fact that tracing reduces the lifetime of almost-always 'static data to
-            // something less is also necessitating an allocation here...
             let file = metadata.file().unwrap_or("<error: not available>");
             let line = metadata.line().unwrap_or(0);
-            let span = Span::new(metadata.name(), "", file, line, self.stack_depth);
-            span_data.extensions_mut().insert(span);
+            TRACY_SPAN_STACK.with(|s| {
+                s.borrow_mut().push_back((
+                    Span::new(metadata.name(), "", file, line, self.stack_depth),
+                    id.into_u64()
+                ));
+            });
         }
     }
 
-    fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
-        if let Some(span_data) = ctx.span(id) {
-            if let Some(tracy_span) = span_data.extensions_mut().remove::<Span>() {
-                drop(tracy_span);
+    fn on_exit(&self, id: &Id, ctx: Context<S>) {
+        TRACY_SPAN_STACK.with(|s| {
+            if let Some((span, span_id)) = s.borrow_mut().pop_back() {
+                if id.into_u64() != span_id {
+                    color_message(
+                        "Tracing spans exited out of order! \
+                        Trace may not be accurate for this span stack.",
+                        0xFF000000,
+                        16
+                    );
+                }
+                drop(span);
+            } else {
+                color_message(
+                    "Exiting a tracing span, but got nothing on the tracy span stack!",
+                    0xFF000000,
+                    16
+                );
             }
-        }
+        });
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
@@ -136,7 +156,7 @@ impl Visit for TracyEventFieldVisitor {
 
     fn record_bool(&mut self, field: &Field, value: bool) {
         match (value, field.name()) {
-            (true, "tracy_private.frame_mark") => self.frame_mark = true,
+            (true, "tracy.frame_mark") => self.frame_mark = true,
             _ => self.record_debug(field, &value),
         }
     }
@@ -176,4 +196,41 @@ mod tests {
             tracy.frame_mark = true
         );
     }
+
+    #[test]
+    fn multiple_entries() {
+        setup_subscriber();
+        let span = span!(Level::INFO, "multiple_entries");
+        span.in_scope(|| {});
+        span.in_scope(|| {});
+
+        let span = span!(Level::INFO, "multiple_entries 2");
+        span.in_scope(|| {
+            span.in_scope(|| {})
+        });
+    }
+
+    #[test]
+    fn out_of_order() {
+        setup_subscriber();
+        let span1 = span!(Level::INFO, "out of order exits 1");
+        let span2 = span!(Level::INFO, "out of order exits 2");
+        let span3 = span!(Level::INFO, "out of order exits 3");
+        let entry1 = span1.enter();
+        let entry2 = span2.enter();
+        let entry3 = span3.enter();
+        drop(entry2);
+        drop(entry3);
+        drop(entry1);
+    }
+
+    #[test]
+    fn exit_in_different_thread() {
+        setup_subscriber();
+        let span = Box::leak(Box::new(span!(Level::INFO, "exit in different thread")));
+        let entry = span.enter();
+        let thread = std::thread::spawn(|| drop(entry));
+        thread.join();
+    }
+
 }

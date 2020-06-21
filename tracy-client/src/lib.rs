@@ -218,6 +218,23 @@ pub fn message(message: &str, callstack_depth: u16) {
     }
 }
 
+/// Output a message with an associated color.
+///
+/// `callstack_depth` specifies the maximum number of stack frames client should collect.
+///
+/// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
+/// component and most significant 8 bits represent the red component.
+pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
+    unsafe {
+        sys::___tracy_emit_messageC(
+            message.as_ptr() as _,
+            message.len(),
+            rgba >> 8,
+            callstack_depth.into()
+        )
+    }
+}
+
 /// Create an instance of plot that can plot arbitrary `f64` values.
 ///
 /// # Examples
