@@ -263,6 +263,7 @@ mod tests {
         number
     }
 
+    // Test based on the spawny_thing example from the tracing repository.
     #[tokio::test]
     async fn async_futures() {
         setup_subscriber();
