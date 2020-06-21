@@ -45,8 +45,12 @@ jobs:
         with:
           command: test
           args: --manifest-path=tracy-client/Cargo.toml -- --nocapture
+        env:
+          TRACY_NO_INVARIANT_CHECK: 1
       - name: Test Release
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --manifest-path=tracy-client/Cargo.toml --release -- --nocapture
+        env:
+          TRACY_NO_INVARIANT_CHECK: 1
