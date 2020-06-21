@@ -46,7 +46,7 @@ impl Span {
             } else {
                 Self(sys::___tracy_emit_zone_begin_alloc_callstack(
                     loc,
-                    callstack_depth.into(),
+                    adjust_stack_depth(callstack_depth).into(),
                     1,
                 ), std::marker::PhantomData)
             }
@@ -97,7 +97,7 @@ pub struct ProfiledAllocator<T>(T, u16);
 
 impl<T> ProfiledAllocator<T> {
     pub const fn new(inner_allocator: T, callstack_depth: u16) -> Self {
-        Self(inner_allocator, callstack_depth)
+        Self(inner_allocator, adjust_stack_depth(callstack_depth))
     }
 
     fn emit_alloc(&self, ptr: *mut u8, size: usize) -> *mut u8 {
@@ -214,7 +214,11 @@ impl Drop for Frame {
 /// `callstack_depth` specifies the maximum number of stack frames client should collect.
 pub fn message(message: &str, callstack_depth: u16) {
     unsafe {
-        sys::___tracy_emit_message(message.as_ptr() as _, message.len(), callstack_depth.into())
+        sys::___tracy_emit_message(
+            message.as_ptr() as _,
+            message.len(),
+            adjust_stack_depth(callstack_depth).into()
+        )
     }
 }
 
@@ -230,7 +234,7 @@ pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
             message.as_ptr() as _,
             message.len(),
             rgba >> 8,
-            callstack_depth.into()
+            adjust_stack_depth(callstack_depth).into()
         )
     }
 }
@@ -269,6 +273,15 @@ impl Plot {
             sys::___tracy_emit_plot(self.0.as_ptr() as _, value);
         }
     }
+}
+
+/// Adjust the stack depth to maximum supported by tracy.
+#[inline(always)]
+const fn adjust_stack_depth(depth: u16) -> u16 {
+    #[cfg(windows)]
+    std::cmp::min(depth, 62)
+    #[cfg(not(windows))]
+    depth
 }
 
 #[cfg(test)]
