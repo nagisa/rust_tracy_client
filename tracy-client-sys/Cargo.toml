@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client-sys"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 build = "build.rs"
 license = "MIT/Apache-2.0"
