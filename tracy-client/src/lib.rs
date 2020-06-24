@@ -103,9 +103,9 @@ impl<T> ProfiledAllocator<T> {
     fn emit_alloc(&self, ptr: *mut u8, size: usize) -> *mut u8 {
         unsafe {
             if self.1 == 0 {
-                sys::___tracy_emit_memory_alloc(ptr as _, size);
+                sys::___tracy_emit_memory_alloc(ptr as _, size, 1);
             } else {
-                sys::___tracy_emit_memory_alloc_callstack(ptr as _, size, self.1.into());
+                sys::___tracy_emit_memory_alloc_callstack(ptr as _, size, self.1.into(), 1);
             }
         }
         ptr
@@ -114,9 +114,9 @@ impl<T> ProfiledAllocator<T> {
     fn emit_free(&self, ptr: *mut u8) -> *mut u8 {
         unsafe {
             if self.1 == 0 {
-                sys::___tracy_emit_memory_free(ptr as _);
+                sys::___tracy_emit_memory_free(ptr as _, 1);
             } else {
-                sys::___tracy_emit_memory_free_callstack(ptr as _, self.1.into());
+                sys::___tracy_emit_memory_free_callstack(ptr as _, self.1.into(), 1);
             }
         }
         ptr

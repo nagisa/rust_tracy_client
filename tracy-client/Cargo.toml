@@ -13,7 +13,7 @@ High level bindings to the client libraries for the Tracy profiler
 """
 
 [dependencies]
-tracy-client-sys = { version = "0.7.2", default-features = false }
+tracy-client-sys = { version = "0.8.0", default-features = false }
 
 [features]
 default = [ "enable" ]
