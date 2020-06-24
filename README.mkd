@@ -4,9 +4,10 @@ This project contains Rust crates for producing [Tracy profiler](https://github.
 traces. Tracy features nanosecond precision, ability to profile remotely and a full-featured
 graphical interface for finding hot spots in profiled programs.
 
-While Tracy's Rust support is not first-class, it is still a very potent tool. If you have an
+While Tracy's support for Rust is not first-class, it is still a very potent tool. If you have an
 application instrumented with the `tracing` crate, Tracy can be used with your program in minutes
-via the `tracing-tracy` crate.
+via the `tracing-tracy` crate. It can work well as both a profiling and, to a lesser extent,
+an observability tool.
 
 ## Important note
 
