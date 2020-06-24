@@ -1,3 +1,19 @@
-# Rust client bindings for the Tracy profiler
+# Tracy profiler clients in Rust
 
-See [Tracy profiler](https://github.com/wolfpld/tracy).
+This project contains Rust crates for producing [Tracy profiler](https://github.com/wolfpld/tracy)
+traces. Tracy features nanosecond precision, ability to profile remotely and a full-featured
+graphical interface for finding hot spots in profiled programs.
+
+While Tracy's Rust support is not first-class, it is still a very potent tool. If you have an
+application instrumented with the `tracing` crate, Tracy can be used with your program in minutes
+via the `tracing-tracy` crate.
+
+## Important note
+
+Simply depending on crates in this repository is sufficient for tracy to be enabled at program
+startup, even if none of the APIs provided by this crate are invoked. Tracy will broadcast
+discovery packets to the local network and expose the data it collects in the background to that
+same network. Traces collected by Tracy may include source and assembly code as well.
+
+As thus, you may want make sure to only enable the `tracing-tracy`, `tracy-client` and
+`tracy-client-sys` crates conditionally, via the `enable` feature flag provided by the crates.

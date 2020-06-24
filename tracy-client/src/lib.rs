@@ -4,11 +4,10 @@
 //!
 //! # Important note
 //!
-//! Simply depending on this crate is sufficient
-//! for tracy to be enabled at program startup, even if none of the APIs provided by this crate are
-//! invoked. Tracy will broadcast discovery packets to the local network and expose the data it
-//! collects in the background to that same network. Traces collected by Tracy may include source
-//! and assembly code as well.
+//! Simply depending on this crate is sufficient for tracy to be enabled at program startup, even
+//! if none of the APIs provided by this crate are invoked. Tracy will broadcast discovery packets
+//! to the local network and expose the data it collects in the background to that same network.
+//! Traces collected by Tracy may include source and assembly code as well.
 //!
 //! As thus, you may want make sure to only enable the `tracy-client` crate conditionally, via the
 //! `enable` feature flag provided by this crate.
