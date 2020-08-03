@@ -1,5 +1,5 @@
+use std::thread::{sleep, spawn};
 use tracy_client::*;
-use std::thread::{spawn, sleep};
 
 #[global_allocator]
 static GLOBAL: ProfiledAllocator<std::alloc::System> =
@@ -86,7 +86,6 @@ fn main() {
             finish_continuous_frame!("T5");
         }
     });
-
 
     message("starting t6", 10);
     let t6 = spawn(|| {
