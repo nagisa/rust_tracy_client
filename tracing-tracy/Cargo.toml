@@ -15,7 +15,7 @@ Inspect tracing-enabled Rust applications with Tracy
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.2", default-features = false, features = ["registry"] }
-tracy-client = { version = "0.7.2", default-features = false }
+tracy-client = { path = "../tracy-client", version = "0.7.2", default-features = false }
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
