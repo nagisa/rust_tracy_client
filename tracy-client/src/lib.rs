@@ -15,16 +15,11 @@
 //! [Tracy profiler]: https://github.com/wolfpld/tracy
 
 use std::alloc;
-use std::ffi::CString;
-
 #[doc(hidden)]
 pub use tracy_client_sys as sys;
 
 /// A handle representing a span of execution.
-pub struct Span(
-    sys::TracyCZoneCtx,
-    std::marker::PhantomData<*mut sys::TracyCZoneCtx>,
-);
+pub struct Span(sys::TracyCZoneCtx, std::marker::PhantomData<*mut sys::TracyCZoneCtx>);
 
 impl Span {
     /// Start a new Tracy span.
@@ -46,19 +41,13 @@ impl Span {
                 name.len(),
             );
             if callstack_depth == 0 {
-                Self(
-                    sys::___tracy_emit_zone_begin_alloc(loc, 1),
-                    std::marker::PhantomData,
-                )
+                Self(sys::___tracy_emit_zone_begin_alloc(loc, 1), std::marker::PhantomData)
             } else {
-                Self(
-                    sys::___tracy_emit_zone_begin_alloc_callstack(
-                        loc,
-                        adjust_stack_depth(callstack_depth).into(),
-                        1,
-                    ),
-                    std::marker::PhantomData,
-                )
+                Self(sys::___tracy_emit_zone_begin_alloc_callstack(
+                    loc,
+                    adjust_stack_depth(callstack_depth).into(),
+                    1,
+                ), std::marker::PhantomData)
             }
         }
     }
@@ -227,7 +216,7 @@ pub fn message(message: &str, callstack_depth: u16) {
         sys::___tracy_emit_message(
             message.as_ptr() as _,
             message.len(),
-            adjust_stack_depth(callstack_depth).into(),
+            adjust_stack_depth(callstack_depth).into()
         )
     }
 }
@@ -244,15 +233,9 @@ pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
             message.as_ptr() as _,
             message.len(),
             rgba >> 8,
-            adjust_stack_depth(callstack_depth).into(),
+            adjust_stack_depth(callstack_depth).into()
         )
     }
-}
-
-pub fn set_thread_name(name: &str) {
-    let name = CString::new(name).unwrap();
-
-    unsafe { sys::___tracy_set_thread_name(name.as_ptr() as _) }
 }
 
 /// Create an instance of plot that can plot arbitrary `f64` values.

@@ -165,10 +165,6 @@ enabled_fn! { pub fn ___tracy_emit_message_appinfo(
     size: usize
 ) }
 
-enabled_fn! { pub fn ___tracy_set_thread_name(
-    name: *const c_char,
-) }
-
 #[cfg(test)]
 mod tests {
     use super::*;
