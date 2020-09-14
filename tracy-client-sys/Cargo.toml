@@ -31,3 +31,6 @@ lowres-timer = []
 # Do not exit when program finishes execution or crashes. Can also by sent by environment variable
 # `TRACY_NO_EXIT`.
 noexit = []
+# Don't build our own Tracy library, just try to link to an existing one. This is required to support,
+# projects with multiple DLLs/shared objects
+use-external-tracy-library = []

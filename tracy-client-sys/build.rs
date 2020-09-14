@@ -4,7 +4,9 @@ fn link_libraries(target_os: &str) {
     match target_os {
         "linux" | "android" => println!("cargo:rustc-link-lib=dl"),
         "freebsd" | "dragonfly" => println!("cargo:rustc-link-lib=c"),
-        "windows" => println!("cargo:rustc-link-lib=user32"),
+        "windows" => {
+            println!("cargo:rustc-link-lib=user32");
+        }
         _ => {}
     }
 }
@@ -25,9 +27,10 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     c
 }
 
-
 fn main() {
-    if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
+    if std::env::var_os("CARGO_FEATURE_ENABLE").is_some()
+        && std::env::var_os("CARGO_FEATURE_USE_EXTERNAL_TRACY_LIBRARY").is_none()
+    {
         set_feature_defines(cc::Build::new())
             .file("tracy/TracyClient.cpp")
             .warnings(false)
@@ -41,8 +44,8 @@ fn main() {
             link_libraries(&target_os);
         }
         Err(e) => {
-            writeln!(::std::io::stderr(),
-                     "Unable to get target_os=`{}`!", e).expect("could not report the error");
+            writeln!(::std::io::stderr(), "Unable to get target_os=`{}`!", e)
+                .expect("could not report the error");
             ::std::process::exit(0xfd);
         }
     }

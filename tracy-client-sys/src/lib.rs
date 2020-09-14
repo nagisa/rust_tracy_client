@@ -14,8 +14,8 @@
 //! As thus, you may want make sure to only enable the `tracy-client-sys` crate conditionally, via
 //! the `enable` feature flag provided by this crate.
 
-use std::os::raw::{c_char, c_int};
 use std::ffi::c_void;
+use std::os::raw::{c_char, c_int};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -34,14 +34,14 @@ pub struct TracyCZoneCtx {
     pub active: c_int,
 }
 
-#[cfg(feature="enable")]
+#[cfg(feature = "enable")]
 macro_rules! enabled_fn {
     (pub $($tokens: tt)*) => {
         extern "C" { pub $($tokens)*; }
     };
 }
 
-#[cfg(not(feature="enable"))]
+#[cfg(not(feature = "enable"))]
 macro_rules! enabled_fn {
     (pub $($tokens: tt)*) => {
         #[allow(non_snake_case, unused_variables)]
@@ -137,9 +137,9 @@ enabled_fn! { pub fn ___tracy_emit_messageC(
     callstack: c_int
 ) }
 enabled_fn! { pub fn ___tracy_emit_messageLC(
-    txt: *const c_char,
-    color: u32,
-    callstack: c_int) }
+txt: *const c_char,
+color: u32,
+callstack: c_int) }
 enabled_fn! { pub fn ___tracy_emit_frame_mark(
     name: *const c_char
 ) }
