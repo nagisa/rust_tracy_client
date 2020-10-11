@@ -240,6 +240,7 @@ pub fn message(message: &str, callstack_depth: u16) {
 /// component and most significant 8 bits represent the red component.
 pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
     unsafe {
+        sys::___tracy_init_thread();
         sys::___tracy_emit_messageC(
             message.as_ptr() as _,
             message.len(),

@@ -175,6 +175,7 @@ mod tests {
     #[test]
     fn emit_zone() {
         unsafe {
+            ___tracy_init_thread();
             let srcloc = ___tracy_source_location_data {
                 name: b"name\0".as_ptr() as _,
                 function: b"function\0".as_ptr() as _,
@@ -190,6 +191,7 @@ mod tests {
     #[test]
     fn emit_message_no_null() {
         unsafe {
+            ___tracy_init_thread();
             ___tracy_emit_message(b"hello world".as_ptr() as _, 11, 1);
         }
     }
