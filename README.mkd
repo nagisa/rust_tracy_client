@@ -18,3 +18,16 @@ same network. Traces collected by Tracy may include source and assembly code as 
 
 As thus, you may want make sure to only enable the `tracing-tracy`, `tracy-client` and
 `tracy-client-sys` crates conditionally, via the `enable` feature flag provided by the crates.
+
+## Version support table
+
+This project, unlike Tracy itself, follows semantic versioning. We will publish a breaking version
+bump whenever there is a breaking protocol change, even if the `Tracy` project itself does not. An
+older version of `Tracy` being unable to communicate with the client of a more recent version is an
+example of such a breaking change.
+
+The following table lists the version correspondence between the libraries.
+
+| Tracy | tracy-client-sys | tracy-client | tracing-tracy |
+| 0.7.1 | 0.9.0 | 0.8.0 | 0.2.0 |
+| 0.7.3 | 0.10.0 | 0.9.0 | 0.3.0 |
