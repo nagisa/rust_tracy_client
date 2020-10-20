@@ -29,5 +29,6 @@ example of such a breaking change.
 The following table lists the version correspondence between the libraries.
 
 | Tracy | tracy-client-sys | tracy-client | tracing-tracy |
-| 0.7.1 | 0.9.0 | 0.8.0 | 0.2.0 |
-| 0.7.3 | 0.10.0 | 0.9.0 | 0.3.0 |
+| ----- | ---------------- | ------------ | ------------- |
+| 0.7.1 | 0.9.0            | 0.8.0        | 0.2.0         |
+| 0.7.3 | 0.10.0           | 0.9.0        | 0.3.0         |
