@@ -51,7 +51,9 @@ use tracing_core::{
     span::Id,
     Event, Subscriber,
 };
+use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
 use tracing_subscriber::{
+    fmt::FormattedFields,
     layer::{Context, Layer},
     registry,
 };
@@ -66,7 +68,8 @@ thread_local! {
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer {
+pub struct TracyLayer<F = DefaultFields> {
+    format: F,
     stack_depth: u16,
 }
 
@@ -75,7 +78,7 @@ impl TracyLayer {
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
-        Self { stack_depth: 64 }
+        Self { format: DefaultFields::new(), stack_depth: 64 }
     }
 
     /// Specify the maximum number of stack frames that will be collected.
@@ -93,18 +96,24 @@ impl Default for TracyLayer {
     }
 }
 
-impl<S> Layer<S> for TracyLayer
+impl<S, F> Layer<S> for TracyLayer<F>
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
+    F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         if let Some(span_data) = ctx.span(id) {
             let metadata = span_data.metadata();
             let file = metadata.file().unwrap_or("<error: not available>");
             let line = metadata.line().unwrap_or(0);
+            let name = if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
+                format!("{}: {}", metadata.name(), fields.fields.as_str())
+            } else {
+                metadata.name().to_string()
+            };
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
-                    Span::new(metadata.name(), "", file, line, self.stack_depth),
+                    Span::new(&name, "", file, line, self.stack_depth),
                     id.into_u64()
                 ));
             });
@@ -189,123 +198,8 @@ impl Visit for TracyEventFieldVisitor {
 }
 
 #[cfg(test)]
-<<<<<<< HEAD
 mod tests;
 #[cfg(test)]
 fn main() {
     tests::main();
-=======
-mod tests {
-    use futures::future::join_all;
-    use tracing::{debug, event, info, span, Level};
-    use tracing_attributes::instrument;
-    use tracing_subscriber::layer::SubscriberExt;
-
-    fn setup_subscriber() {
-        static ONCE: std::sync::Once = std::sync::Once::new();
-        ONCE.call_once(|| {
-            tracing::subscriber::set_global_default(
-                tracing_subscriber::registry().with(super::TracyLayer::new()),
-            )
-            .unwrap();
-        });
-    }
-
-    #[test]
-    fn it_works() {
-        setup_subscriber();
-        let span = span!(Level::TRACE, "a sec");
-        let _enter = span.enter();
-        event!(Level::INFO, "EXPLOSION!");
-    }
-
-    #[test]
-    fn it_works_2() {
-        setup_subscriber();
-        let span = span!(Level::TRACE, "2 secs");
-        let _enter = span.enter();
-        event!(
-            Level::INFO,
-            message = "DOUBLE THE EXPLOSION!",
-            tracy.frame_mark = true
-        );
-    }
-
-    #[test]
-    fn with_fields() {
-        setup_subscriber();
-        let span = span!(Level::TRACE, "a sec", name = "test");
-        let _enter = span.enter();
-        event!(Level::INFO, "EXPLOSION IN A SPAN WITH A NAME!");
-    }
-
-    #[test]
-    fn multiple_entries() {
-        setup_subscriber();
-        let span = span!(Level::INFO, "multiple_entries");
-        span.in_scope(|| {});
-        span.in_scope(|| {});
-
-        let span = span!(Level::INFO, "multiple_entries 2");
-        span.in_scope(|| span.in_scope(|| {}));
-    }
-
-    #[test]
-    fn out_of_order() {
-        setup_subscriber();
-        let span1 = span!(Level::INFO, "out of order exits 1");
-        let span2 = span!(Level::INFO, "out of order exits 2");
-        let span3 = span!(Level::INFO, "out of order exits 3");
-        let entry1 = span1.enter();
-        let entry2 = span2.enter();
-        let entry3 = span3.enter();
-        drop(entry2);
-        drop(entry3);
-        drop(entry1);
-    }
-
-    #[test]
-    fn exit_in_different_thread() {
-        setup_subscriber();
-        let span = Box::leak(Box::new(span!(Level::INFO, "exit in different thread")));
-        let entry = span.enter();
-        let thread = std::thread::spawn(|| drop(entry));
-        thread.join().unwrap();
-    }
-
-    #[instrument]
-    async fn parent_task(subtasks: usize) {
-        info!("spawning subtasks...");
-        let subtasks = (1..=subtasks)
-            .map(|number| {
-                debug!(message = "creating subtask;", number);
-                subtask(number)
-            })
-            .collect::<Vec<_>>();
-
-        let result = join_all(subtasks).await;
-
-        debug!("all subtasks completed");
-        let sum: usize = result.into_iter().sum();
-        info!(sum);
-    }
-
-    #[instrument]
-    async fn subtask(number: usize) -> usize {
-        info!("sleeping in subtask {}...", number);
-        tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
-        info!("sleeping in subtask {}...", number);
-        tokio::time::delay_for(std::time::Duration::from_millis(number as _)).await;
-        info!("sleeping in subtask {}...", number);
-        tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
-        number
-    }
-
-    // Test based on the spawny_things example from the tracing repository.
-    #[tokio::test]
-    async fn async_futures() {
-        setup_subscriber();
-        parent_task(5).await;
-    }
->>>>>>> 9c47614 (Add a test for the span with fields case)
 }
