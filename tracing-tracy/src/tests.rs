@@ -90,6 +90,11 @@ fn long_span_data() {
     info_span!("some span name", "{}", data).in_scope(|| {});
 }
 
+fn span_with_fields() {
+    let span = span!(Level::TRACE, message = "wait", duration = 0, reason = "testing fields");
+    let _enter = span.enter();
+}
+
 pub(crate) fn main() {
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry().with(super::TracyLayer::new()),
@@ -102,6 +107,7 @@ pub(crate) fn main() {
     exit_in_different_thread();
     message_too_long();
     long_span_data();
+    span_with_fields();
     let mut runtime = tokio::runtime::Builder::new().enable_all().build().expect("tokio runtime");
     runtime.block_on(async_futures());
 }
