@@ -38,7 +38,9 @@ use tracing_core::{
     span::Id,
     Event, Subscriber,
 };
+use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
 use tracing_subscriber::{
+    fmt::FormattedFields,
     layer::{Context, Layer},
     registry,
 };
@@ -53,7 +55,8 @@ thread_local! {
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer {
+pub struct TracyLayer<F = DefaultFields> {
+    format: F,
     stack_depth: u16,
 }
 
@@ -62,7 +65,7 @@ impl TracyLayer {
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
-        Self { stack_depth: 64 }
+        Self { format: DefaultFields::new(), stack_depth: 64 }
     }
 
     /// Specify the maximum number of stack frames that will be collected.
@@ -80,18 +83,24 @@ impl Default for TracyLayer {
     }
 }
 
-impl<S> Layer<S> for TracyLayer
+impl<S, F> Layer<S> for TracyLayer<F>
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
+    F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         if let Some(span_data) = ctx.span(id) {
             let metadata = span_data.metadata();
             let file = metadata.file().unwrap_or("<error: not available>");
             let line = metadata.line().unwrap_or(0);
+            let name = if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
+                format!("{}: {}", metadata.name(), fields.fields.as_str())
+            } else {
+                metadata.name().to_string()
+            };
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
-                    Span::new(metadata.name(), "", file, line, self.stack_depth),
+                    Span::new(&name, "", file, line, self.stack_depth),
                     id.into_u64()
                 ));
             });
