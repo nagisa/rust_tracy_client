@@ -32,7 +32,7 @@
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
 
-use std::{fmt::Write, collections::VecDeque, cell::RefCell};
+use std::{cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
     field::{Field, Visit},
     span::Id,
@@ -45,7 +45,7 @@ use tracing_subscriber::{
     registry,
 };
 
-use tracy_client::{Span, color_message, message, finish_continuous_frame};
+use tracy_client::{color_message, finish_continuous_frame, message, Span};
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -65,7 +65,10 @@ impl TracyLayer {
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
-        Self { format: DefaultFields::new(), stack_depth: 64 }
+        Self {
+            format: DefaultFields::new(),
+            stack_depth: 64,
+        }
     }
 
     /// Specify the maximum number of stack frames that will be collected.
@@ -101,7 +104,7 @@ where
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
                     Span::new(&name, "", file, line, self.stack_depth),
-                    id.into_u64()
+                    id.into_u64(),
                 ));
             });
         }
@@ -115,7 +118,7 @@ where
                         "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                         0xFF000000,
-                        16
+                        16,
                     );
                 }
                 drop(span);
@@ -123,7 +126,7 @@ where
                 color_message(
                     "Exiting a tracing span, but got nothing on the tracy span stack!",
                     0xFF000000,
-                    16
+                    16,
                 );
             }
         });
@@ -173,10 +176,10 @@ impl Visit for TracyEventFieldVisitor {
 
 #[cfg(test)]
 mod tests {
-    use tracing::{event, span, debug, info, Level};
-    use tracing_subscriber::layer::SubscriberExt;
     use futures::future::join_all;
+    use tracing::{debug, event, info, span, Level};
     use tracing_attributes::instrument;
+    use tracing_subscriber::layer::SubscriberExt;
 
     fn setup_subscriber() {
         static ONCE: std::sync::Once = std::sync::Once::new();
@@ -216,9 +219,7 @@ mod tests {
         span.in_scope(|| {});
 
         let span = span!(Level::INFO, "multiple_entries 2");
-        span.in_scope(|| {
-            span.in_scope(|| {})
-        });
+        span.in_scope(|| span.in_scope(|| {}));
     }
 
     #[test]
