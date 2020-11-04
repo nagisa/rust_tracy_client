@@ -212,6 +212,14 @@ mod tests {
     }
 
     #[test]
+    fn with_fields() {
+        setup_subscriber();
+        let span = span!(Level::TRACE, "a sec", name = "test");
+        let _enter = span.enter();
+        event!(Level::INFO, "EXPLOSION IN A SPAN WITH A NAME!");
+    }
+
+    #[test]
     fn multiple_entries() {
         setup_subscriber();
         let span = span!(Level::INFO, "multiple_entries");
