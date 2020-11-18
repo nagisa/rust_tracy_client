@@ -106,7 +106,7 @@ where
                         "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                         0xFF000000,
-                        16
+                        self.stack_depth,
                     );
                 }
                 drop(span);
@@ -114,7 +114,7 @@ where
                 color_message(
                     "Exiting a tracing span, but got nothing on the tracy span stack!",
                     0xFF000000,
-                    16
+                    self.stack_depth,
                 );
             }
         });
@@ -128,7 +128,20 @@ where
         };
         event.record(&mut visitor);
         if !visitor.first {
-            message(&visitor.dest, self.stack_depth)
+            let mut max_len = usize::from(u16::max_value()) - 1;
+            if visitor.dest.len() >= max_len {
+                while !visitor.dest.is_char_boundary(max_len) {
+                    max_len -= 1;
+                }
+                message(&visitor.dest[..max_len], self.stack_depth);
+                color_message(
+                    "Message for the previous event was too long, truncated",
+                    0xFF000000,
+                    self.stack_depth,
+                );
+            } else {
+                message(&visitor.dest, self.stack_depth);
+            }
         }
         if visitor.frame_mark {
             finish_continuous_frame!();
@@ -164,10 +177,10 @@ impl Visit for TracyEventFieldVisitor {
 
 #[cfg(test)]
 mod tests {
-    use tracing::{event, span, debug, info, Level};
-    use tracing_subscriber::layer::SubscriberExt;
     use futures::future::join_all;
     use tracing_attributes::instrument;
+    use tracing::{debug, event, info, span, info_span, Level};
+    use tracing_subscriber::layer::SubscriberExt;
 
     fn setup_subscriber() {
         static ONCE: std::sync::Once = std::sync::Once::new();
@@ -268,5 +281,18 @@ mod tests {
     async fn async_futures() {
         setup_subscriber();
         parent_task(5).await;
+    }
+
+    #[test]
+    fn message_too_long() {
+        setup_subscriber();
+        info!("{}", "a".repeat(u16::max_value().into()));
+    }
+
+    #[test]
+    fn long_span_data() {
+        setup_subscriber();
+        let data = "c".repeat(u16::max_value().into());
+        info_span!("some span name", "{}", data).in_scope(|| {});
     }
 }
