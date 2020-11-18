@@ -224,6 +224,7 @@ impl Drop for Frame {
 /// `callstack_depth` specifies the maximum number of stack frames client should collect.
 pub fn message(message: &str, callstack_depth: u16) {
     unsafe {
+        sys::___tracy_init_thread();
         sys::___tracy_emit_message(
             message.as_ptr() as _,
             message.len(),
