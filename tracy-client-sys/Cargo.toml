@@ -1,6 +1,7 @@
 [package]
 name = "tracy-client-sys"
-version = "0.10.0"
+# Don't forget to update the table in README.md
+version = "0.11.0"
 authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 build = "build.rs"
 license = "MIT/Apache-2.0"

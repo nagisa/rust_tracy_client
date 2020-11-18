@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -13,7 +13,7 @@ High level bindings to the client libraries for the Tracy profiler
 """
 
 [dependencies]
-tracy-client-sys = { path = "../tracy-client-sys", version = "0.10.0", default-features = false }
+tracy-client-sys = { path = "../tracy-client-sys", version = "0.11.0", default-features = false }
 
 [features]
 default = [ "enable" ]
