@@ -93,6 +93,10 @@ enabled_fn! { pub fn ___tracy_emit_zone_text(
     txt: *const c_char,
     size: usize
 ) }
+enabled_fn! { pub fn ___tracy_emit_zone_color(
+    ctx: TracyCZoneCtx,
+    color: u32,
+) }
 enabled_fn! { pub fn ___tracy_emit_zone_name(
     ctx: TracyCZoneCtx,
     txt: *const c_char,
