@@ -22,9 +22,9 @@ As thus, you may want make sure to only enable the `tracing-tracy`, `tracy-clien
 ## Version support table
 
 This project, unlike Tracy itself, follows semantic versioning. We will publish a breaking version
-bump whenever there is a breaking protocol change, even if the `Tracy` project itself does not. An
-older version of `Tracy` being unable to communicate with the client of a more recent version is an
-example of such a breaking change.
+bump whenever there is a potentially breaking protocol change, even if the `Tracy` project itself
+does not. An older version of `Tracy` being unable to communicate with the client of a more recent
+version is an example of such a breaking change.
 
 The following table lists the version correspondence between the libraries.
 
@@ -34,3 +34,4 @@ The following table lists the version correspondence between the libraries.
 | 0.7.3 | 0.10.0           | 0.9.0        | 0.3.0         |
 | 0.7.4 | 0.11.0           | 0.10.0       | 0.4.0         |
 | 0.7.5 | 0.12.0           | 0.11.0       | 0.5.0         |
+| 0.7.6 | 0.13.0           | 0.12.0       | 0.6.0         |
