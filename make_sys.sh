@@ -10,6 +10,7 @@ fi
 TAG="${LAST_RELEASE[0]}"
 TARBALL="${LAST_RELEASE[1]}"
 DESTINATION=/tmp/tracy-$TAG # could use mktemp, but unnecessary complexity.
+echo "::set-output name=tracy-tag::$TAG"
 mkdir -p "$DESTINATION"
 
 curl -sL "$TARBALL" -o - | tar -f - -zxC "$DESTINATION"

@@ -1,0 +1,35 @@
+name: Update the tracy-client-sys crate
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 0/6 * * *'
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+      - name: Install Rust ${{ matrix.rust_toolchain }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            profile: minimal
+            default: true
+      - name: Install bindgen
+        run: cargo install bindgen
+      - name: Install dependencies
+        run: sudo apt install -y jq curl
+      - name: Run the generation script
+        id: make_sys
+        run: bash make_sys.sh
+      - name: Diff the generated code
+        run: git diff
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@c1d92ef456b26aa473c38442bc6ba07824664c44
+        with:
+          commit-message: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
+          title: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
+          body: ''
+          delete-branch: true
