@@ -22,8 +22,8 @@ pub use tracy_client_sys as sys;
 
 /// A handle representing a span of execution.
 pub struct Span(
-    sys::TracyCZoneCtx,
-    std::marker::PhantomData<*mut sys::TracyCZoneCtx>,
+    sys::___tracy_c_zone_context,
+    std::marker::PhantomData<*mut sys::___tracy_c_zone_context>,
 );
 
 impl Span {

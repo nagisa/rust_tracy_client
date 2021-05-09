@@ -1,3 +1,0 @@
-[submodule "tracy-sys/tracy"]
-	path = tracy-client-sys/tracy
-	url = ../../wolfpld/tracy.git
