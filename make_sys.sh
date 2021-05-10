@@ -25,10 +25,11 @@ bindgen "$BASEDIR/TracyC.h" \
   --whitelist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --whitelist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --size_t-is-usize \
+  --disable-header-comment \
   -- \
   -DTRACY_ENABLE
+sed -i 's/pub type/type/g' 'tracy-client-sys/src/generated.rs'
 
-sed -i 's/^pub type/type/g' 'tracy-client-sys/src/generated.rs'
 for REQUIRED_FILE in ${REQUIRED[@]}
 do
   DEST_PATH=tracy-client-sys/tracy"${REQUIRED_FILE#$BASEDIR}"
@@ -36,5 +37,5 @@ do
   cp "$REQUIRED_FILE" "$DEST_PATH"
 done
 
+cp -r "$BASEDIR/libbacktrace" "tracy-client-sys/tracy/"
 cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
-cp "$BASEDIR/libbacktrace/LICENSE" "tracy-client-sys/tracy/libbacktrace/"
