@@ -31,3 +31,4 @@ lowres-timer = []
 # Do not exit when program finishes execution or crashes. Can also be activated by an environment
 # variable: `TRACY_NO_EXIT`.
 noexit = []
+ondemand = []

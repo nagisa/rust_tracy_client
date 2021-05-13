@@ -22,6 +22,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_NOEXIT").is_some() {
         c.define("TRACY_NO_EXIT", None);
     }
+    if std::env::var_os("CARGO_FEATURE_ONDEMAND").is_some() {
+        c.define("TRACY_ON_DEMAND", None);
+    }
     c
 }
 
