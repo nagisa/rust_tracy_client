@@ -31,4 +31,6 @@ lowres-timer = []
 # Do not exit when program finishes execution or crashes. Can also be activated by an environment
 # variable: `TRACY_NO_EXIT`.
 noexit = []
+# Enable on-demand mode. Traces are only collected when a server connects to the client.
+# Also makes it possible to repeatedly re-connect to a client.
 ondemand = []
