@@ -28,7 +28,7 @@ bindgen "$BASEDIR/TracyC.h" \
   --disable-header-comment \
   -- \
   -DTRACY_ENABLE
-sed -i 's/pub type/type/g' 'tracy-client-sys/src/generated.rs'
+sed -i .bak 's/pub type/type/g' 'tracy-client-sys/src/generated.rs'
 
 for REQUIRED_FILE in ${REQUIRED[@]}
 do
