@@ -272,7 +272,7 @@ static const char* GetProcessName()
     if( buf ) processName = buf;
 #  endif
 #elif defined _GNU_SOURCE || defined __CYGWIN__
-    processName = program_invocation_short_name;
+    if( program_invocation_short_name ) processName = program_invocation_short_name;
 #elif defined __APPLE__ || defined BSD
     auto buf = getprogname();
     if( buf ) processName = buf;
@@ -569,16 +569,20 @@ static uint64_t GetPid()
 #endif
 }
 
-static void AckServerQuery()
+void Profiler::AckServerQuery()
 {
-    TracyLfqPrepare( QueueType::AckServerQueryNoop );
-    TracyLfqCommit;
+    QueueItem item;
+    MemWrite( &item.hdr.type, QueueType::AckServerQueryNoop );
+    NeedDataSize( QueueDataSize[(int)QueueType::AckServerQueryNoop] );
+    AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::AckServerQueryNoop] );
 }
 
-static void AckSourceCodeNotAvailable()
+void Profiler::AckSourceCodeNotAvailable()
 {
-    TracyLfqPrepare( QueueType::AckSourceCodeNotAvailable );
-    TracyLfqCommit;
+    QueueItem item;
+    MemWrite( &item.hdr.type, QueueType::AckSourceCodeNotAvailable );
+    NeedDataSize( QueueDataSize[(int)QueueType::AckSourceCodeNotAvailable] );
+    AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::AckSourceCodeNotAvailable] );
 }
 
 static BroadcastMessage& GetBroadcastMessage( const char* procname, size_t pnsz, int& len, int port )
@@ -746,6 +750,10 @@ static void CrashHandler( int signal, siginfo_t* info, void* /*ucontext*/ )
     bool expected = false;
     if( !s_alreadyCrashed.compare_exchange_strong( expected, true ) ) ThreadFreezer( signal );
 
+    struct sigaction act = {};
+    act.sa_handler = SIG_DFL;
+    sigaction( SIGABRT, &act, nullptr );
+
     auto msgPtr = s_crashText;
     switch( signal )
     {
@@ -871,6 +879,9 @@ static void CrashHandler( int signal, siginfo_t* info, void* /*ucontext*/ )
         default:
             break;
         }
+        break;
+    case SIGABRT:
+        strcpy( msgPtr, "Abort signal from abort().\n" );
         break;
     default:
         abort();
@@ -1221,6 +1232,7 @@ void Profiler::SpawnWorkerThreads()
     sigaction( SIGSEGV, &crashHandler, nullptr );
     sigaction( SIGPIPE, &crashHandler, nullptr );
     sigaction( SIGBUS, &crashHandler, nullptr );
+    sigaction( SIGABRT, &crashHandler, nullptr );
 #endif
 
 #ifdef TRACY_HAS_CALLSTACK
@@ -1561,6 +1573,11 @@ void Profiler::Worker()
             case QueueType::LockName:
                 ptr = MemRead<uint64_t>( &item.lockNameFat.name );
                 size = MemRead<uint16_t>( &item.lockNameFat.size );
+                SendSingleString( (const char*)ptr, size );
+                break;
+            case QueueType::GpuContextName:
+                ptr = MemRead<uint64_t>( &item.gpuContextNameFat.ptr );
+                size = MemRead<uint16_t>( &item.gpuContextNameFat.size );
                 SendSingleString( (const char*)ptr, size );
                 break;
             default:
@@ -2074,15 +2091,13 @@ Profiler::DequeueStatus Profiler::Dequeue( moodycamel::ConsumerToken& token )
                         break;
                     }
                     case QueueType::GpuContextName:
-                    {
                         ptr = MemRead<uint64_t>( &item->gpuContextNameFat.ptr );
-                        uint16_t size = MemRead<uint16_t>( &item->gpuContextNameFat.size );
+                        size = MemRead<uint16_t>( &item->gpuContextNameFat.size );
                         SendSingleString( (const char*)ptr, size );
 #ifndef TRACY_ON_DEMAND
                         tracy_free( (void*)ptr );
 #endif
                         break;
-                    }
                     case QueueType::PlotData:
                     {
                         int64_t t = MemRead<int64_t>( &item->plotData.time );
@@ -3234,7 +3249,7 @@ void Profiler::HandleSourceCodeQuery()
             auto ptr = (char*)tracy_malloc( st.st_size );
             auto rd = fread( ptr, 1, st.st_size, f );
             fclose( f );
-            if( rd == st.st_size )
+            if( rd == (size_t)st.st_size )
             {
                 SendLongString( (uint64_t)ptr, ptr, rd, QueueType::SourceCode );
             }

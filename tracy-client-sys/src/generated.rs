@@ -228,6 +228,38 @@ extern "C" {
     );
 }
 extern "C" {
+    pub fn ___tracy_emit_memory_alloc_named(
+        ptr: *const ::std::os::raw::c_void,
+        size: usize,
+        secure: ::std::os::raw::c_int,
+        name: *const ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn ___tracy_emit_memory_alloc_callstack_named(
+        ptr: *const ::std::os::raw::c_void,
+        size: usize,
+        depth: ::std::os::raw::c_int,
+        secure: ::std::os::raw::c_int,
+        name: *const ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn ___tracy_emit_memory_free_named(
+        ptr: *const ::std::os::raw::c_void,
+        secure: ::std::os::raw::c_int,
+        name: *const ::std::os::raw::c_char,
+    );
+}
+extern "C" {
+    pub fn ___tracy_emit_memory_free_callstack_named(
+        ptr: *const ::std::os::raw::c_void,
+        depth: ::std::os::raw::c_int,
+        secure: ::std::os::raw::c_int,
+        name: *const ::std::os::raw::c_char,
+    );
+}
+extern "C" {
     pub fn ___tracy_emit_message(
         txt: *const ::std::os::raw::c_char,
         size: usize,
