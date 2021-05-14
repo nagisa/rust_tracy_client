@@ -19,7 +19,7 @@ mod generated;
 #[cfg(feature="enable")]
 pub use generated::*;
 
-#[cfg(test)]
+#[cfg(all(feature="enable", test))]
 mod tests {
     use super::*;
     #[test]

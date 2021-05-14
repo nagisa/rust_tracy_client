@@ -13,18 +13,23 @@
 //! `enable` feature flag provided by this crate.
 //!
 //! [Tracy profiler]: https://github.com/wolfpld/tracy
+#![cfg_attr(not(feature="enable"), allow(unused_imports, unused_variables))]
 
 use std::alloc;
 use std::ffi::CString;
-
-#[doc(hidden)]
-pub use tracy_client_sys as sys;
+use tracy_client_sys as sys;
 
 /// A handle representing a span of execution.
+#[cfg(feature="enable")]
 pub struct Span(
     sys::___tracy_c_zone_context,
     std::marker::PhantomData<*mut sys::___tracy_c_zone_context>,
 );
+
+#[cfg(not(feature="enable"))]
+pub struct Span(());
+
+
 
 impl Span {
     /// Start a new Tracy span.
@@ -34,6 +39,11 @@ impl Span {
     ///
     /// `callstack_depth` specifies the maximum number of stack frames client should collect.
     pub fn new(name: &str, function: &str, file: &str, line: u32, callstack_depth: u16) -> Self {
+        #[cfg(not(feature="enable"))]
+        {
+            return Self(());
+        }
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_init_thread();
             let loc = sys::___tracy_alloc_srcloc_name(
@@ -66,6 +76,7 @@ impl Span {
     /// Emit a numeric value associated with this span.
     pub fn emit_value(&self, value: u64) {
         // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_emit_zone_value(self.0, value);
         }
@@ -74,6 +85,7 @@ impl Span {
     /// Emit some text associated with this span.
     pub fn emit_text(&self, text: &str) {
         // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_emit_zone_text(self.0, text.as_ptr() as _, text.len());
         }
@@ -83,6 +95,7 @@ impl Span {
 impl Drop for Span {
     fn drop(&mut self) {
         // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_emit_zone_end(self.0);
         }
@@ -111,6 +124,7 @@ impl<T> ProfiledAllocator<T> {
     }
 
     fn emit_alloc(&self, ptr: *mut u8, size: usize) -> *mut u8 {
+        #[cfg(feature="enable")]
         unsafe {
             if self.1 == 0 {
                 sys::___tracy_emit_memory_alloc(ptr as _, size, 1);
@@ -122,6 +136,7 @@ impl<T> ProfiledAllocator<T> {
     }
 
     fn emit_free(&self, ptr: *mut u8) -> *mut u8 {
+        #[cfg(feature="enable")]
         unsafe {
             if self.1 == 0 {
                 sys::___tracy_emit_memory_free(ptr as _, 1);
@@ -176,14 +191,25 @@ unsafe impl<T: alloc::GlobalAlloc> alloc::GlobalAlloc for ProfiledAllocator<T> {
 macro_rules! finish_continuous_frame {
     () => {
         unsafe {
-            $crate::sys::___tracy_emit_frame_mark(std::ptr::null());
+            $crate::finish_continuous_frame(std::ptr::null());
         }
     };
     ($name: literal) => {
         unsafe {
-            $crate::sys::___tracy_emit_frame_mark(concat!($name, "\0").as_ptr() as _);
+            $crate::finish_continuous_frame(concat!($name, "\0").as_ptr() as _);
         }
     };
+}
+
+/// Use `finish_continuous_frame!` instead.
+///
+/// `name` must contain a NULL byte.
+#[doc(hidden)]
+pub unsafe fn finish_continuous_frame(name: *const u8) {
+    #[cfg(feature="enable")]
+    {
+        sys::___tracy_emit_frame_mark(name as _);
+    }
 }
 
 /// Start a non-continuous frame region.
@@ -191,9 +217,7 @@ macro_rules! finish_continuous_frame {
 macro_rules! start_noncontinuous_frame {
     ($name: literal) => {
         unsafe {
-            let name = concat!($name, "\0");
-            $crate::sys::___tracy_emit_frame_mark_start(name.as_ptr() as _);
-            $crate::Frame::new_unchecked(name)
+            $crate::Frame::start_noncontinuous_frame(concat!($name, "\0"))
         }
     };
 }
@@ -204,15 +228,22 @@ macro_rules! start_noncontinuous_frame {
 pub struct Frame(&'static str);
 
 impl Frame {
-    /// Use `start_noncontinuous_frame` instead.
+    /// Use `start_noncontinuous_frame!` instead.
+    ///
+    /// `name` must contain a NULL byte.
     #[doc(hidden)]
-    pub const unsafe fn new_unchecked(name: &'static str) -> Self {
+    pub unsafe fn start_noncontinuous_frame(name: &'static str) -> Frame {
+        #[cfg(feature="enable")]
+        {
+            sys::___tracy_emit_frame_mark_start(name.as_ptr() as _);
+        }
         Self(name)
     }
 }
 
 impl Drop for Frame {
     fn drop(&mut self) {
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_emit_frame_mark_end(self.0.as_ptr() as _);
         }
@@ -223,6 +254,7 @@ impl Drop for Frame {
 ///
 /// `callstack_depth` specifies the maximum number of stack frames client should collect.
 pub fn message(message: &str, callstack_depth: u16) {
+    #[cfg(feature="enable")]
     unsafe {
         sys::___tracy_init_thread();
         sys::___tracy_emit_message(
@@ -240,6 +272,7 @@ pub fn message(message: &str, callstack_depth: u16) {
 /// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
 /// component and most significant 8 bits represent the red component.
 pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
+    #[cfg(feature="enable")]
     unsafe {
         sys::___tracy_init_thread();
         sys::___tracy_emit_messageC(
@@ -251,10 +284,14 @@ pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
     }
 }
 
+/// Set the current thread name to the provided value.
 pub fn set_thread_name(name: &str) {
-    let name = CString::new(name).unwrap();
-
-    unsafe { sys::___tracy_set_thread_name(name.as_ptr() as _) }
+    #[cfg(feature="enable")]
+    unsafe {
+        let name = CString::new(name).unwrap();
+        // SAFE: `name` is a valid null-terminated string.
+        sys::___tracy_set_thread_name(name.as_ptr() as _)
+    }
 }
 
 /// Create an instance of plot that can plot arbitrary `f64` values.
@@ -287,6 +324,7 @@ impl Plot {
 
     /// Add a point with `y`-axis value of `value` to the plot.
     pub fn point(&self, value: f64) {
+        #[cfg(feature="enable")]
         unsafe {
             sys::___tracy_emit_plot(self.0.as_ptr() as _, value);
         }
