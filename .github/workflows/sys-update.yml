@@ -24,18 +24,20 @@ jobs:
       - name: Run the generation script
         id: make_sys
         run: bash make_sys.sh
-      - uses: tibdex/github-app-token@36464acb844fc53b9b8b2401da68844f6b05ebb0
+      - name: Diff the generated code
+        run: git diff
+      - if: ${{ steps.make_sys.outputs.tracy-changed }}
+        uses: tibdex/github-app-token@36464acb844fc53b9b8b2401da68844f6b05ebb0
         id: generate-token
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
-      - name: Diff the generated code
-        run: git diff
-      - name: Create Pull Request
+      - if: ${{ steps.make_sys.outputs.tracy-changed }}
+        name: Create Pull Request
         uses: peter-evans/create-pull-request@d9d6fd980e1e0904e8e4dce3f0992640091bde37
         with:
-          commit-message: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
           title: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
           body: ''
           delete-branch: true
           token: ${{ steps.generate-token.outputs.token }}
+          base: main

@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.12.1"
+version = "0.12.1" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -12,8 +12,10 @@ description = """
 High level bindings to the client libraries for the Tracy profiler
 """
 
-[dependencies]
-tracy-client-sys = { path = "../tracy-client-sys", version = "0.14.0", default-features = false }
+[dependencies.tracy-client-sys]
+path = "../tracy-client-sys"
+version = ">=0.14.0, <0.15.0" # AUTO-UPDATE
+default-features = false
 
 [features]
 default = [ "enable" ]
