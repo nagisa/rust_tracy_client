@@ -43,8 +43,8 @@
 namespace tracy
 {
 #if defined(TRACY_DELAYED_INIT) && defined(TRACY_MANUAL_LIFETIME)
-void StartupProfiler();
-void ShutdownProfiler();
+TRACY_API void StartupProfiler();
+TRACY_API void ShutdownProfiler();
 #endif
 
 class GpuCtx;
@@ -692,6 +692,9 @@ private:
     void HandleSymbolQuery( uint64_t symbol );
     void HandleSymbolCodeQuery( uint64_t symbol, uint32_t size );
     void HandleSourceCodeQuery();
+
+    void AckServerQuery();
+    void AckSourceCodeNotAvailable();
 
     void CalibrateTimer();
     void CalibrateDelay();
