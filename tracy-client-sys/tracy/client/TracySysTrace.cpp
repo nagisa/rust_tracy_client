@@ -2,6 +2,33 @@
 
 #ifdef TRACY_HAS_SYSTEM_TRACING
 
+#ifndef TRACY_SAMPLING_HZ
+#  if defined _WIN32 || defined __CYGWIN__
+#    define TRACY_SAMPLING_HZ 8000
+#  elif defined __linux__
+#    define TRACY_SAMPLING_HZ 10000
+#  endif
+#endif
+
+namespace tracy
+{
+
+static constexpr int GetSamplingFrequency()
+{
+#if defined _WIN32 || defined __CYGWIN__
+    return TRACY_SAMPLING_HZ > 8000 ? 8000 : ( TRACY_SAMPLING_HZ < 1 ? 1 : TRACY_SAMPLING_HZ );
+#else
+    return TRACY_SAMPLING_HZ > 1000000 ? 1000000 : ( TRACY_SAMPLING_HZ < 1 ? 1 : TRACY_SAMPLING_HZ );
+#endif
+}
+
+static constexpr int GetSamplingPeriod()
+{
+    return 1000000000 / GetSamplingFrequency();
+}
+
+}
+
 #  if defined _WIN32 || defined __CYGWIN__
 
 #    ifndef NOMINMAX
@@ -330,6 +357,11 @@ static void SetupVsync()
 #endif
 }
 
+static constexpr int GetSamplingInterval()
+{
+    return GetSamplingPeriod() / 100;
+}
+
 bool SysTraceStart( int64_t& samplingPeriod )
 {
     if( !_GetThreadDescription ) _GetThreadDescription = (t_GetThreadDescription)GetProcAddress( GetModuleHandleA( "kernel32.dll" ), "GetThreadDescription" );
@@ -360,10 +392,10 @@ bool SysTraceStart( int64_t& samplingPeriod )
     if( isOs64Bit )
     {
         TRACE_PROFILE_INTERVAL interval = {};
-        interval.Interval = 1250;   // 8 kHz
+        interval.Interval = GetSamplingInterval();
         const auto intervalStatus = TraceSetInformation( 0, TraceSampledProfileIntervalInfo, &interval, sizeof( interval ) );
         if( intervalStatus != ERROR_SUCCESS ) return false;
-        samplingPeriod = 125*1000;
+        samplingPeriod = GetSamplingPeriod();
     }
 
     const auto psz = sizeof( EVENT_TRACE_PROPERTIES ) + sizeof( KERNEL_LOGGER_NAME );
@@ -486,16 +518,19 @@ void SysTraceSendExternalName( uint64_t thread )
     }
     if( hnd != 0 )
     {
-        PWSTR tmp;
-        _GetThreadDescription( hnd, &tmp );
-        char buf[256];
-        if( tmp )
+        if( _GetThreadDescription )
         {
-            auto ret = wcstombs( buf, tmp, 256 );
-            if( ret != 0 )
+            PWSTR tmp;
+            _GetThreadDescription( hnd, &tmp );
+            char buf[256];
+            if( tmp )
             {
-                GetProfiler().SendString( thread, buf, ret, QueueType::ExternalThreadName );
-                threadSent = true;
+                auto ret = wcstombs( buf, tmp, 256 );
+                if( ret != 0 )
+                {
+                    GetProfiler().SendString( thread, buf, ret, QueueType::ExternalThreadName );
+                    threadSent = true;
+                }
             }
         }
         const auto pid = GetProcessIdOfThread( hnd );
@@ -646,7 +681,7 @@ static void SetupSampling( int64_t& samplingPeriod )
     return;
 #endif
 
-    samplingPeriod = 100*1000;
+    samplingPeriod = GetSamplingPeriod();
 
     s_numCpus = (int)std::thread::hardware_concurrency();
     s_ring = (RingBuffer<RingBufSize>*)tracy_malloc( sizeof( RingBuffer<RingBufSize> ) * s_numCpus );
@@ -657,7 +692,7 @@ static void SetupSampling( int64_t& samplingPeriod )
     pe.size = sizeof( perf_event_attr );
     pe.config = PERF_COUNT_SW_CPU_CLOCK;
 
-    pe.sample_freq = 10000;
+    pe.sample_freq = GetSamplingFrequency();
     pe.sample_type = PERF_SAMPLE_TID | PERF_SAMPLE_TIME | PERF_SAMPLE_CALLCHAIN;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION( 4, 8, 0 )
     pe.sample_max_stack = 127;
@@ -733,54 +768,59 @@ static void SetupSampling( int64_t& samplingPeriod )
                         s_ring[i].Read( &cnt, offset, sizeof( uint64_t ) );
                         offset += sizeof( uint64_t );
 
-                        auto trace = (uint64_t*)tracy_malloc( ( 1 + cnt ) * sizeof( uint64_t ) );
-                        s_ring[i].Read( trace+1, offset, sizeof( uint64_t ) * cnt );
+                        if( cnt > 0 )
+                        {
+                            auto trace = (uint64_t*)tracy_malloc( ( 1 + cnt ) * sizeof( uint64_t ) );
+                            s_ring[i].Read( trace+1, offset, sizeof( uint64_t ) * cnt );
 
-                        // remove non-canonical pointers
-                        do
-                        {
-                            const auto test = (int64_t)trace[cnt];
-                            const auto m1 = test >> 63;
-                            const auto m2 = test >> 47;
-                            if( m1 == m2 ) break;
-                        }
-                        while( --cnt > 0 );
-                        for( uint64_t j=1; j<cnt; j++ )
-                        {
-                            const auto test = (int64_t)trace[j];
-                            const auto m1 = test >> 63;
-                            const auto m2 = test >> 47;
-                            if( m1 != m2 ) trace[j] = 0;
-                        }
-
-                        // skip kernel frames
-                        uint64_t j;
-                        for( j=0; j<cnt; j++ )
-                        {
-                            if( (int64_t)trace[j+1] >= 0 ) break;
-                        }
-                        if( j == cnt )
-                        {
-                            tracy_free( trace );
-                        }
-                        else
-                        {
-                            if( j > 0 )
+#if defined __x86_64__ || defined _M_X64
+                            // remove non-canonical pointers
+                            do
                             {
-                                cnt -= j;
-                                memmove( trace+1, trace+1+j, sizeof( uint64_t ) * cnt );
+                                const auto test = (int64_t)trace[cnt];
+                                const auto m1 = test >> 63;
+                                const auto m2 = test >> 47;
+                                if( m1 == m2 ) break;
                             }
-                            memcpy( trace, &cnt, sizeof( uint64_t ) );
-
-#if defined TRACY_HW_TIMER && ( defined __i386 || defined _M_IX86 || defined __x86_64__ || defined _M_X64 )
-                            t0 = s_ring[i].ConvertTimeToTsc( t0 );
+                            while( --cnt > 0 );
+                            for( uint64_t j=1; j<cnt; j++ )
+                            {
+                                const auto test = (int64_t)trace[j];
+                                const auto m1 = test >> 63;
+                                const auto m2 = test >> 47;
+                                if( m1 != m2 ) trace[j] = 0;
+                            }
 #endif
 
-                            TracyLfqPrepare( QueueType::CallstackSample );
-                            MemWrite( &item->callstackSampleFat.time, t0 );
-                            MemWrite( &item->callstackSampleFat.thread, (uint64_t)tid );
-                            MemWrite( &item->callstackSampleFat.ptr, (uint64_t)trace );
-                            TracyLfqCommit;
+                            // skip kernel frames
+                            uint64_t j;
+                            for( j=0; j<cnt; j++ )
+                            {
+                                if( (int64_t)trace[j+1] >= 0 ) break;
+                            }
+                            if( j == cnt )
+                            {
+                                tracy_free( trace );
+                            }
+                            else
+                            {
+                                if( j > 0 )
+                                {
+                                    cnt -= j;
+                                    memmove( trace+1, trace+1+j, sizeof( uint64_t ) * cnt );
+                                }
+                                memcpy( trace, &cnt, sizeof( uint64_t ) );
+
+#if defined TRACY_HW_TIMER && ( defined __i386 || defined _M_IX86 || defined __x86_64__ || defined _M_X64 )
+                                t0 = s_ring[i].ConvertTimeToTsc( t0 );
+#endif
+
+                                TracyLfqPrepare( QueueType::CallstackSample );
+                                MemWrite( &item->callstackSampleFat.time, t0 );
+                                MemWrite( &item->callstackSampleFat.thread, (uint64_t)tid );
+                                MemWrite( &item->callstackSampleFat.ptr, (uint64_t)trace );
+                                TracyLfqCommit;
+                            }
                         }
                     }
                 }
