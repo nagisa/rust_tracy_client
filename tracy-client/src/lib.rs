@@ -90,6 +90,15 @@ impl Span {
             sys::___tracy_emit_zone_text(self.0, text.as_ptr() as _, text.len());
         }
     }
+
+    /// Emit a color associated with this span.
+    pub fn emit_color(&self, color: u32) {
+        // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
+        #[cfg(feature="enable")]
+        unsafe {
+            sys::___tracy_emit_zone_color(self.0, color);
+        }
+    }
 }
 
 impl Drop for Span {
