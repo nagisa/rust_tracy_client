@@ -1,6 +1,6 @@
 use futures::future::join_all;
+use tracing::{debug, event, info, info_span, span, Level};
 use tracing_attributes::instrument;
-use tracing::{debug, event, info, span, info_span, Level};
 use tracing_subscriber::layer::SubscriberExt;
 
 fn it_works() {
@@ -25,9 +25,7 @@ fn multiple_entries() {
     span.in_scope(|| {});
 
     let span = span!(Level::INFO, "multiple_entries 2");
-    span.in_scope(|| {
-        span.in_scope(|| {})
-    });
+    span.in_scope(|| span.in_scope(|| {}));
 }
 
 fn out_of_order() {
@@ -91,7 +89,12 @@ fn long_span_data() {
 }
 
 fn span_with_fields() {
-    let span = span!(Level::TRACE, message = "wait", duration = 0, reason = "testing fields");
+    let span = span!(
+        Level::TRACE,
+        "wait",
+        duration = 0,
+        reason = "testing fields"
+    );
     let _enter = span.enter();
 }
 
@@ -108,6 +111,9 @@ pub(crate) fn main() {
     message_too_long();
     long_span_data();
     span_with_fields();
-    let mut runtime = tokio::runtime::Builder::new().enable_all().build().expect("tokio runtime");
+    let mut runtime = tokio::runtime::Builder::new()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
     runtime.block_on(async_futures());
 }

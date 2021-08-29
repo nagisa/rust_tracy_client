@@ -45,20 +45,20 @@
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
 
-use std::{fmt::Write, collections::VecDeque, cell::RefCell};
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
     field::{Field, Visit},
-    span::Id,
+    span::{Attributes, Id},
     Event, Subscriber,
 };
-use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
+use tracing_subscriber::fmt::format::{DefaultFields, DefaultVisitor, FormatFields};
 use tracing_subscriber::{
     fmt::FormattedFields,
     layer::{Context, Layer},
     registry,
 };
 
-use tracy_client::{Span, color_message, message, finish_continuous_frame};
+use tracy_client::{color_message, finish_continuous_frame, message, Span};
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -69,24 +69,58 @@ thread_local! {
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
 pub struct TracyLayer<F = DefaultFields> {
-    format: F,
+    fmt: F,
     stack_depth: u16,
 }
 
-impl TracyLayer {
+impl TracyLayer<DefaultFields> {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
-        Self { format: DefaultFields::new(), stack_depth: 64 }
+        Self {
+            fmt: DefaultFields::default(),
+            stack_depth: 64,
+        }
     }
+}
 
+impl<F> TracyLayer<F> {
     /// Specify the maximum number of stack frames that will be collected.
     ///
     /// Specifying 0 frames will disable stack trace collection.
     pub fn with_stackdepth(mut self, stack_depth: u16) -> Self {
         self.stack_depth = stack_depth;
         self
+    }
+
+    /// Use a custom field formatting implementation.
+    pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
+        TracyLayer {
+            fmt,
+            stack_depth: self.stack_depth,
+        }
+    }
+
+    fn truncate_to_length<'d>(
+        &self,
+        data: &'d str,
+        file: &str,
+        function: &str,
+        error_msg: &'static str,
+    ) -> &'d str {
+        // From AllocSourceLocation
+        let mut max_len =
+            usize::from(u16::max_value()) - 2 - 4 - 4 - function.len() - 1 - file.len() - 1;
+        if data.len() >= max_len {
+            while !data.is_char_boundary(max_len) {
+                max_len -= 1;
+            }
+            color_message(error_msg, 0xFF000000, self.stack_depth);
+            &data[..max_len]
+        } else {
+            data
+        }
     }
 }
 
@@ -101,20 +135,47 @@ where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
     F: for<'writer> FormatFields<'writer> + 'static,
 {
+    fn new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        let span = ctx.span(id).expect("Span not found, this is a bug");
+        let mut extensions = span.extensions_mut();
+        if extensions.get_mut::<FormattedFields<F>>().is_none() {
+            let mut buf = String::with_capacity(64);
+            if self.fmt.format_fields(&mut buf, attrs).is_ok() {
+                extensions.insert(FormattedFields::<F>::new(buf));
+            }
+        }
+    }
+
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         if let Some(span_data) = ctx.span(id) {
             let metadata = span_data.metadata();
-            let file = metadata.file().unwrap_or("<error: not available>");
+            let file = metadata.file().unwrap_or("<not available>");
             let line = metadata.line().unwrap_or(0);
-            let name = if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
-                format!("{}: {}", metadata.name(), fields.fields.as_str())
-            } else {
-                metadata.name().to_string()
-            };
+            let name: Cow<str> =
+                if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
+                    if fields.fields.as_str().is_empty() {
+                        metadata.name().into()
+                    } else {
+                        format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
+                    }
+                } else {
+                    metadata.name().into()
+                };
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
-                    Span::new(&name, "", file, line, self.stack_depth),
-                    id.into_u64()
+                    Span::new(
+                        self.truncate_to_length(
+                            &name,
+                            &file,
+                            "",
+                            "span information is too long and was truncated",
+                        ),
+                        "",
+                        file,
+                        line,
+                        self.stack_depth,
+                    ),
+                    id.into_u64(),
                 ));
             });
         }
@@ -144,26 +205,21 @@ where
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
         let mut visitor = TracyEventFieldVisitor {
-            dest: String::new(),
+            dest: String::with_capacity(64),
             first: true,
             frame_mark: false,
         };
         event.record(&mut visitor);
         if !visitor.first {
-            let mut max_len = usize::from(u16::max_value()) - 1;
-            if visitor.dest.len() >= max_len {
-                while !visitor.dest.is_char_boundary(max_len) {
-                    max_len -= 1;
-                }
-                message(&visitor.dest[..max_len], self.stack_depth);
-                color_message(
-                    "Message for the previous event was too long, truncated",
-                    0xFF000000,
-                    self.stack_depth,
-                );
-            } else {
-                message(&visitor.dest, self.stack_depth);
-            }
+            message(
+                self.truncate_to_length(
+                    &visitor.dest,
+                    "",
+                    "",
+                    "event message is too long and was truncated",
+                ),
+                self.stack_depth,
+            );
         }
         if visitor.frame_mark {
             finish_continuous_frame!();
