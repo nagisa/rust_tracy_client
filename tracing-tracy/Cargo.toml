@@ -1,6 +1,6 @@
 [package]
 name = "tracing-tracy"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"

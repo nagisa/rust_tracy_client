@@ -65,7 +65,7 @@ NEXT_CLIENT_VERSION="0.12.$(echo "$CURRENT_CLIENT_VERSION" \
   | awk '{print $0+1}')"
 
 # Adjust the table in the README file…
-sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| $TAG | $NEXT_SYS_VERSION | 0.12.* | 0.6.* |")" \
+sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| $TAG | $NEXT_SYS_VERSION | 0.12.* | 0.7.* |")" \
     README.mkd
 # …the version in tracy-client-sys…
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
