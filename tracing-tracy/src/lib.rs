@@ -51,7 +51,7 @@ use tracing_core::{
     span::{Attributes, Id},
     Event, Subscriber,
 };
-use tracing_subscriber::fmt::format::{DefaultFields, DefaultVisitor, FormatFields};
+use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
 use tracing_subscriber::{
     fmt::FormattedFields,
     layer::{Context, Layer},
