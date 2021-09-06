@@ -19,6 +19,27 @@ use std::alloc;
 use std::ffi::CString;
 use tracy_client_sys as sys;
 
+/// Start a new Tracy span with function, file, and line determined automatically.
+#[macro_export]
+macro_rules! span {
+    ($name:expr, $callstack_depth:expr) => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let func_name = type_name_of(f);
+        let function = &func_name[..func_name.len() - 3];
+
+        tracy_client::Span::new(
+            $name,
+            function,
+            file!(),
+            line!(),
+            $callstack_depth,
+        )
+    }};
+}
+
 /// A handle representing a span of execution.
 #[cfg(feature="enable")]
 pub struct Span(
