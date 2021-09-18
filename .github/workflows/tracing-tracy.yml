@@ -16,8 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_toolchain: [nightly, stable, 1.42.0]
+        rust_toolchain: [nightly, stable, 1.53.0]
         os: [ubuntu-latest, windows-latest, macOS-latest]
+        flags: ["", "--release", "--no-default-features", "--all-features"]
     timeout-minutes: 20
     steps:
       - name: Checkout source
@@ -30,37 +31,10 @@ jobs:
             toolchain: ${{ matrix.rust_toolchain }}
             profile: minimal
             default: true
-      - name: Update
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          args: --manifest-path=tracing-tracy/Cargo.toml
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path=tracing-tracy/Cargo.toml
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path=tracing-tracy/Cargo.toml -- --nocapture
+          args: --manifest-path=tracing-tracy/Cargo.toml ${{ matrix.flags }} -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
-      - name: Test Release
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --manifest-path=tracing-tracy/Cargo.toml --release -- --nocapture
-        env:
-          TRACY_NO_INVARIANT_CHECK: 1
-      - name: Build (no features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path=tracing-tracy/Cargo.toml --no-default-features
-      - name: Build (all features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --manifest-path=tracing-tracy/Cargo.toml --all-features
