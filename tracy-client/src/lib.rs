@@ -20,6 +20,14 @@ use std::ffi::CString;
 use tracy_client_sys as sys;
 
 /// Start a new Tracy span with function, file, and line determined automatically.
+///
+/// # Examples
+///
+/// Begin a span region, which will be terminated once `_span` goes out of scope:
+///
+/// ```
+/// let _span = tracy_client::span!("some span");
+/// ```
 #[macro_export]
 macro_rules! span {
     ($name:expr) => {
