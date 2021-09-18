@@ -22,17 +22,15 @@ use tracy_client_sys as sys;
 /// Start a new Tracy span with function, file, and line determined automatically.
 #[macro_export]
 macro_rules! span {
+    ($name:expr) => {
+        $crate::span!($name, 62)
+    };
     ($name:expr, $callstack_depth:expr) => {{
-        fn f() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
-        }
-        let func_name = type_name_of(f);
-        let function = &func_name[..func_name.len() - 3];
-
-        tracy_client::Span::new(
+        struct S;
+        let func_name = std::any::type_name::<S>();
+        $crate::Span::new(
             $name,
-            function,
+            &func_name[..func_name.len() - 3],
             file!(),
             line!(),
             $callstack_depth,
@@ -414,5 +412,13 @@ mod tests {
         for i in 0..10 {
             PLOT.point(i as f64);
         }
+    }
+
+    #[test]
+    fn span_macro() {
+        let span = span!("macro span", 42);
+        span.emit_value(42);
+        let span = span!("macro span");
+        span.emit_value(62);
     }
 }
