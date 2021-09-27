@@ -48,7 +48,7 @@
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
     field::{Field, Visit},
-    span::{Attributes, Id},
+    span::{Attributes, Id, Record},
     Event, Subscriber,
 };
 use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
@@ -136,12 +136,27 @@ where
     F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        let span = ctx.span(id).expect("Span not found, this is a bug");
-        let mut extensions = span.extensions_mut();
-        if extensions.get_mut::<FormattedFields<F>>().is_none() {
-            let mut buf = String::with_capacity(64);
-            if self.fmt.format_fields(&mut buf, attrs).is_ok() {
-                extensions.insert(FormattedFields::<F>::new(buf));
+        if let Some(span) = ctx.span(id) {
+            let mut extensions = span.extensions_mut();
+            if extensions.get_mut::<FormattedFields<F>>().is_none() {
+                let mut buf = String::with_capacity(64);
+                if self.fmt.format_fields(&mut buf, attrs).is_ok() {
+                    extensions.insert(FormattedFields::<F>::new(buf));
+                }
+            }
+        }
+    }
+
+    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+        if let Some(span) = ctx.span(id) {
+            let mut exts = span.extensions_mut();
+            if let Some(FormattedFields { fields, .. }) = exts.get_mut::<FormattedFields<F>>() {
+                let _ = self.fmt.add_fields(fields, values);
+            } else {
+                let mut buf = String::with_capacity(64);
+                if self.fmt.format_fields(&mut buf, values).is_ok() {
+                    exts.insert(FormattedFields::<F>::new(buf));
+                }
             }
         }
     }
