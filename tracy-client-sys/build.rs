@@ -35,7 +35,7 @@ fn main() {
             .file("tracy/TracyClient.cpp")
             .warnings(false)
             .cpp(true)
-            .flag_if_supported("-std=gnu++17")
+            .flag_if_supported("-std=c++11")
             .compile("libtracy-client.a");
     }
 
