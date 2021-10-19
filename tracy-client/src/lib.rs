@@ -341,7 +341,7 @@ pub fn set_thread_name(name: &str) {
 /// ```
 #[macro_export]
 macro_rules! create_plot {
-    ($name: literal) => {
+    ($name: expr) => {
         unsafe { $crate::Plot::new_unchecked(concat!($name, "\0")) }
     };
 }
