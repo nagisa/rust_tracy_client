@@ -135,13 +135,13 @@ where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
     F: for<'writer> FormatFields<'writer> + 'static,
 {
-    fn new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id) {
             let mut extensions = span.extensions_mut();
             if extensions.get_mut::<FormattedFields<F>>().is_none() {
-                let mut buf = String::with_capacity(64);
-                if self.fmt.format_fields(&mut buf, attrs).is_ok() {
-                    extensions.insert(FormattedFields::<F>::new(buf));
+                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+                if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
+                    extensions.insert(fields);
                 }
             }
         }
@@ -149,13 +149,13 @@ where
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id) {
-            let mut exts = span.extensions_mut();
-            if let Some(FormattedFields { fields, .. }) = exts.get_mut::<FormattedFields<F>>() {
+            let mut extensions = span.extensions_mut();
+            if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
                 let _ = self.fmt.add_fields(fields, values);
             } else {
-                let mut buf = String::with_capacity(64);
-                if self.fmt.format_fields(&mut buf, values).is_ok() {
-                    exts.insert(FormattedFields::<F>::new(buf));
+                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+                if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
+                    extensions.insert(fields);
                 }
             }
         }
@@ -181,7 +181,7 @@ where
                     Span::new(
                         self.truncate_to_length(
                             &name,
-                            &file,
+                            file,
                             "",
                             "span information is too long and was truncated",
                         ),
