@@ -14,10 +14,14 @@
 //!
 //! [Tracy profiler]: https://github.com/wolfpld/tracy
 #![cfg_attr(not(feature="enable"), allow(unused_imports, unused_variables))]
+#![cfg_attr(feature="static_span", feature(const_type_name, const_mut_refs))]
 
 use std::alloc;
 use std::ffi::CString;
 use tracy_client_sys as sys;
+
+#[cfg(feature="static_span")]
+pub use const_format as const_format;
 
 /// Start a new Tracy span with function, file, and line determined automatically.
 ///
@@ -46,6 +50,72 @@ macro_rules! span {
     }};
 }
 
+#[cfg(feature="static_span")]
+#[macro_export]
+macro_rules! static_span {
+    () => {{
+        const LINENO: u32 = line!();
+        const FILE: &'static str = file!();
+        const MODULE_PATH: &'static str = module_path!();
+        const FILE_C: &'static str = $crate::const_format::concatc!(
+            MODULE_PATH,
+            ":",
+            FILE,
+            "\0"
+        );
+
+        // Source: https://stackoverflow.com/questions/38088067/equivalent-of-func-or-function-in-rust
+        fn f() {}
+        const fn type_name_of<T>(_: &T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        const F_FN_NAME: &'static str = type_name_of(&f);
+        const FN_NAME_C: &'static str = $crate::const_format::concatc!(
+            $crate::const_format::Sliced(F_FN_NAME, 0..F_FN_NAME.len() - 3),
+            "\0"
+        );
+        const SRC_LOC: $crate::sys::___tracy_source_location_data = $crate::sys::___tracy_source_location_data {
+            name: FN_NAME_C.as_ptr() as *const _,
+            function: FN_NAME_C.as_ptr() as *const _,
+            file: FILE_C.as_ptr() as *const _,
+            line: LINENO,
+            color: 0,
+        };
+        let ctx = unsafe { $crate::sys::___tracy_emit_zone_begin(&SRC_LOC as *const _, 1) };
+        $crate::Span::private_new(ctx)
+    }};
+    ($name:expr) => {{
+        const LINENO: u32 = line!();
+        const NAME_C: &'static str = $crate::const_format::concatc!($name, "\0");
+        const FILE: &'static str = file!();
+        const MODULE_PATH: &'static str = module_path!();
+        const FILE_C: &'static str = $crate::const_format::concatc!(
+            MODULE_PATH,
+            ":",
+            FILE,
+            "\0"
+        );
+        fn f() {}
+        const fn type_name_of<T>(_: &T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        const F_FN_NAME: &'static str = type_name_of(&f);
+        const FN_NAME_C: &'static str = $crate::const_format::concatc!(
+            $crate::const_format::Sliced(F_FN_NAME, 0..F_FN_NAME.len() - 3),
+            "\0"
+        );
+        const SRC_LOC: $crate::sys::___tracy_source_location_data = $crate::sys::___tracy_source_location_data {
+            name: NAME_C.as_ptr() as *const _,
+            function: FN_NAME_C.as_ptr() as *const _,
+            file: FILE_C.as_ptr() as *const _,
+            line: LINENO,
+            color: 0,
+        };
+        let ctx = unsafe { $crate::sys::___tracy_emit_zone_begin(&SRC_LOC as *const _, 1) };
+        $crate::Span::private_new(ctx)
+    }};
+}
+
 /// A handle representing a span of execution.
 #[cfg(feature="enable")]
 pub struct Span(
@@ -55,8 +125,6 @@ pub struct Span(
 
 #[cfg(not(feature="enable"))]
 pub struct Span(());
-
-
 
 impl Span {
     /// Start a new Tracy span.
@@ -97,6 +165,19 @@ impl Span {
                     std::marker::PhantomData,
                 )
             }
+        }
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub fn private_new(ctx: sys::___tracy_c_zone_context) -> Self {
+        #[cfg(not(feature="enable"))]
+        {
+            return Self(());
+        }
+        #[cfg(feature="enable")]
+        {
+            Self(ctx, std::marker::PhantomData)
         }
     }
 
@@ -428,5 +509,12 @@ mod tests {
         span.emit_value(42);
         let span = span!("macro span");
         span.emit_value(62);
+    }
+
+    #[cfg(feature = "static_span")]
+    #[test]
+    fn test_static_span() {
+        let _s1 = static_span!();
+        let _s2 = static_span!("s2");
     }
 }

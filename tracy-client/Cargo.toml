@@ -17,6 +17,9 @@ path = "../tracy-client-sys"
 version = ">=0.14.0, <0.17.0" # AUTO-UPDATE
 default-features = false
 
+[dependencies]
+const_format = { version = "0.2", features = ["fmt"], optional = true }
+
 [features]
 default = [ "enable" ]
 enable = [ "tracy-client-sys/enable" ]
@@ -24,3 +27,4 @@ delayed-init = [ "tracy-client-sys/delayed-init" ]
 lowres-timer = [ "tracy-client-sys/lowres-timer" ]
 noexit = [ "tracy-client-sys/noexit" ]
 ondemand = [ "tracy-client-sys/ondemand" ]
+static_span = [ "const_format" ]
