@@ -18,7 +18,11 @@ jobs:
       matrix:
         rust_toolchain: [nightly, stable, 1.40.0]
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        flags: ["", "--release", "--no-default-features", "--all-features"]
+        flags: ["", "--release", "--no-default-features", "--features ci-all-features"]
+        include:
+          - rust_toolchain: nightly
+            os: ubuntu-latest
+            flags: "--features static_span"
     timeout-minutes: 20
     steps:
       - name: Checkout source

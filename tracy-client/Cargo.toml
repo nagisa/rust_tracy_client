@@ -28,3 +28,5 @@ lowres-timer = [ "tracy-client-sys/lowres-timer" ]
 noexit = [ "tracy-client-sys/noexit" ]
 ondemand = [ "tracy-client-sys/ondemand" ]
 static_span = [ "const_format" ]
+
+ci-all-features = [ "enable", "delayed-init", "lowres-timer", "noexit", "ondemand" ]
