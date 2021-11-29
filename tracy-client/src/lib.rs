@@ -50,7 +50,14 @@ macro_rules! span {
     }};
 }
 
-#[cfg(feature="static_span")]
+#[cfg(all(feature="static_span", not(feature="enable")))]
+#[macro_export]
+macro_rules! static_span {
+    () => {{}};
+    ($name:expr) => {{}};
+}
+
+#[cfg(all(feature="static_span", feature="enable"))]
 #[macro_export]
 macro_rules! static_span {
     () => {{
@@ -169,16 +176,9 @@ impl Span {
     }
 
     #[doc(hidden)]
-    #[inline]
+    #[cfg(feature="enable")]
     pub fn private_new(ctx: sys::___tracy_c_zone_context) -> Self {
-        #[cfg(not(feature="enable"))]
-        {
-            return Self(());
-        }
-        #[cfg(feature="enable")]
-        {
-            Self(ctx, std::marker::PhantomData)
-        }
+        Self(ctx, std::marker::PhantomData)
     }
 
     /// Emit a numeric value associated with this span.
