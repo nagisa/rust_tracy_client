@@ -12,6 +12,9 @@ description = """
 High level bindings to the client libraries for the Tracy profiler
 """
 
+[dependencies]
+once_cell = "1.10"
+
 [dependencies.tracy-client-sys]
 path = "../tracy-client-sys"
 version = ">=0.14.0, <0.17.0" # AUTO-UPDATE

@@ -31,19 +31,64 @@ use tracy_client_sys as sys;
 #[macro_export]
 macro_rules! span {
     ($name:expr) => {
-        $crate::span!($name, 62)
+        $crate::span_impl!($name, 62)
     };
+    ($name:expr, $callstack_depth:expr) => {
+        $crate::span_impl!($name, $callstack_depth)
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+#[cfg(feature = "enable")]
+macro_rules! span_impl {
     ($name:expr, $callstack_depth:expr) => {{
+        use std::ffi::CString;
+        use $crate::internal::once_cell::sync::Lazy;
+
         struct S;
-        let func_name = std::any::type_name::<S>();
-        $crate::Span::new(
-            $name,
-            &func_name[..func_name.len() - 3],
-            file!(),
-            line!(),
-            $callstack_depth,
-        )
+        static SRC_LOC: Lazy<$crate::internal::SrcLoc> = Lazy::new(|| {
+            let function_name = std::any::type_name::<S>();
+            let function_name = CString::new(&function_name[..function_name.len() - 3]).unwrap();
+            $crate::internal::SrcLoc {
+                data: $crate::internal::sys::___tracy_source_location_data {
+                    name: concat!($name, "\0").as_ptr().cast(),
+                    function: function_name.as_ptr(),
+                    file: concat!(file!(), "\0").as_ptr().cast(),
+                    line: line!(),
+                    color: 0,
+                },
+                _function_name: function_name,
+            }
+        });
+        unsafe { $crate::Span::from_src_loc(&SRC_LOC.data, $callstack_depth) }
     }};
+}
+
+#[macro_export]
+#[doc(hidden)]
+#[cfg(not(feature = "enable"))]
+macro_rules! span_impl {
+    ($name:expr, $callstack_depth:expr) => {
+        $crate::Span::disabled()
+    };
+}
+
+#[doc(hidden)]
+#[cfg(feature = "enable")]
+pub mod internal {
+    use std::ffi::CString;
+
+    pub use once_cell;
+    pub use tracy_client_sys as sys;
+
+    pub struct SrcLoc {
+        pub _function_name: CString,
+        pub data: sys::___tracy_source_location_data,
+    }
+
+    unsafe impl Send for SrcLoc {}
+    unsafe impl Sync for SrcLoc {}
 }
 
 /// A handle representing a span of execution.
@@ -55,8 +100,6 @@ pub struct Span(
 
 #[cfg(not(feature="enable"))]
 pub struct Span(());
-
-
 
 impl Span {
     /// Start a new Tracy span.
@@ -97,6 +140,37 @@ impl Span {
                     std::marker::PhantomData,
                 )
             }
+        }
+    }
+
+    #[inline]
+    #[doc(hidden)]
+    #[cfg(not(feature = "enable"))]
+    pub fn disabled() -> Self {
+        Self(())
+    }
+
+    #[inline]
+    #[doc(hidden)]
+    #[cfg(feature = "enable")]
+    pub unsafe fn from_src_loc(
+        loc: &'static sys::___tracy_source_location_data,
+        callstack_depth: u16,
+    ) -> Self {
+        if callstack_depth == 0 {
+            Self(
+                sys::___tracy_emit_zone_begin(loc, 1),
+                std::marker::PhantomData,
+            )
+        } else {
+            Self(
+                sys::___tracy_emit_zone_begin_callstack(
+                    loc,
+                    adjust_stack_depth(callstack_depth).into(),
+                    1,
+                ),
+                std::marker::PhantomData,
+            )
         }
     }
 
