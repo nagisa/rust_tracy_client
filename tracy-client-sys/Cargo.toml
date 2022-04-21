@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client-sys"
-version = "0.16.1" # AUTO-BUMP
+version = "0.17.0" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 build = "build.rs"
 license = "(MIT OR Apache-2.0) AND BSD-3-Clause"

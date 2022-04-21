@@ -1,7 +1,7 @@
 #ifndef __TRACYTHREAD_HPP__
 #define __TRACYTHREAD_HPP__
 
-#if defined _WIN32 || defined __CYGWIN__
+#if defined _WIN32
 #  include <windows.h>
 #else
 #  include <pthread.h>
@@ -14,6 +14,10 @@
 namespace tracy
 {
 
+#ifdef TRACY_MANUAL_LIFETIME
+extern thread_local bool RpThreadInitDone;
+#endif
+
 class ThreadExitHandler
 {
 public:
@@ -21,11 +25,12 @@ public:
     {
 #ifdef TRACY_MANUAL_LIFETIME
         rpmalloc_thread_finalize();
+        RpThreadInitDone = false;
 #endif
     }
 };
 
-#if defined _WIN32 || defined __CYGWIN__
+#if defined _WIN32
 
 class Thread
 {
