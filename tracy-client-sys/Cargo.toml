@@ -13,23 +13,52 @@ description = """
 Low level bindings to the client libraries for the Tracy profiler
 """
 
+[[test]]
+name = "tests"
+path = "tests.rs"
+harness = false
+required-features = ["fibers"]
+
 [dependencies]
 
 [build-dependencies]
 cc = { version = "1", default-features = false }
 
 [features]
-default = [ "enable" ]
-# Enable Tracy. Once this is activated, tracy will be initialized at program startup.
+default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
+            "broadcast" ]
+# Enable Tracy. Corresponds to the `TRACY_ENABLE` define.
 enable = []
-# Enable delayed init support. Tracy will initialize on first use, rather than during
-# life-before-main.
-delayed-init = []
+# Enable support for tracing coroutines, fibers and similar such asynchrony primitives. Corresponds
+# to the `TRACY_FIBERS` define.
+fibers = []
+
+# Enable tracing of the system-level details. This is only active if permissions are sufficient
+# when the application is run. The `TRACY_NO_SYSTEM_TRACING` define is set if this feature is
+# disabled.
+system-tracing = []
+# Enable capture of the context switch data. The `TRACY_NO_CONTEXT_SWITCH` define is set if this
+# feature is disabled.
+context-switch-tracing = []
+# Enable external sampling of the call stacks. The `TRACY_NO_SAMPLING` define is set if this
+# feature is disabled.
+sampling = []
+# Enable transfer of the machine code to the profiler. The `TRACY_NO_CODE_TRANSFER` define is set
+# if this feature is disabled.
+code-transfer = []
+
+# Allow the client to announce its presence to the profilers on the local network. The
+# `TRACY_NO_BROADCAST` define is set if this feature is disabled.
+broadcast = []
+# Listen for profilers on the localhost interface only. Corresponds to the `TRACY_ONLY_LOCALHOST`
+# define. Can also be activated by setting an environment variable of the same name.
+only-localhost = []
+# Listen on IPv4 interfaces only. Corresponds to the `TRACY_ONLY_IPV4` define. Can also be
+# activated by setting an environment variable of the same name.
+only-ipv4 = []
+
 # Enable support for running with low resolution timers.
-lowres-timer = []
-# Do not exit when program finishes execution or crashes. Can also be activated by an environment
-# variable: `TRACY_NO_EXIT`.
-noexit = []
+timer-fallback = []
 # Enable on-demand mode. Traces are only collected when a server connects to the client.
 # Also makes it possible to repeatedly re-connect to a client.
 ondemand = []

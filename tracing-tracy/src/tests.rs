@@ -66,11 +66,11 @@ async fn parent_task(subtasks: usize) {
 #[instrument]
 async fn subtask(number: usize) -> usize {
     info!("sleeping in subtask {}...", number);
-    tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     info!("sleeping in subtask {}...", number);
-    tokio::time::delay_for(std::time::Duration::from_millis(number as _)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(number as _)).await;
     info!("sleeping in subtask {}...", number);
-    tokio::time::delay_for(std::time::Duration::from_millis(10)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     number
 }
 
@@ -111,7 +111,7 @@ pub(crate) fn main() {
     message_too_long();
     long_span_data();
     span_with_fields();
-    let mut runtime = tokio::runtime::Builder::new()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("tokio runtime");

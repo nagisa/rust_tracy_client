@@ -416,6 +416,12 @@ fn bindgen_test_layout____tracy_gpu_context_name_data() {
 }
 type TracyCZoneCtx = ___tracy_c_zone_context;
 extern "C" {
+    pub fn ___tracy_startup_profiler();
+}
+extern "C" {
+    pub fn ___tracy_shutdown_profiler();
+}
+extern "C" {
     pub fn ___tracy_alloc_srcloc(
         line: u32,
         source: *const ::std::os::raw::c_char,

@@ -1,219 +1,143 @@
+#![deny(unsafe_op_in_unsafe_fn, missing_docs)]
+#![cfg_attr(not(feature = "enable"), allow(unused_variables, unused_imports))]
 //! This crate is a set of safe bindings to the client library of the [Tracy profiler].
 //!
-//! If you have already instrumented your application with `tracing`, consider `tracing-tracy`.
+//! If you have already instrumented your application with `tracing`, consider the `tracing-tracy`
+//! crate.
+//!
+//! [Tracy profiler]: https://github.com/wolfpld/tracy
 //!
 //! # Important note
 //!
-//! Simply depending on this crate is sufficient for tracy to be enabled at program startup, even
-//! if none of the APIs provided by this crate are invoked. Tracy will broadcast discovery packets
-//! to the local network and expose the data it collects in the background to that same network.
-//! Traces collected by Tracy may include source and assembly code as well.
+//! Depending on the configuration Tracy may broadcast discovery packets to the local network and
+//! expose the data it collects in the background to that same network. Traces collected by Tracy
+//! may include source and assembly code as well.
 //!
-//! As thus, you may want make sure to only enable the `tracy-client` crate conditionally, via the
-//! `enable` feature flag provided by this crate.
+//! As thus, you may want make sure to only enable the `tracy-client` crate conditionally, via
+//! the `enable` feature flag provided by this crate.
 //!
-//! [Tracy profiler]: https://github.com/wolfpld/tracy
-#![cfg_attr(not(feature="enable"), allow(unused_imports, unused_variables))]
+//! # Features
+//!
+//! Refer to the [`sys`] crate for documentation on crate features. This crate re-exports all the
+//! features from [`sys`].
 
+pub use crate::frame::{Frame, FrameName};
+pub use crate::plot::PlotName;
+pub use crate::span::{Span, SpanLocation};
 use std::alloc;
 use std::ffi::CString;
-use tracy_client_sys as sys;
+pub use sys;
 
-/// Start a new Tracy span with function, file, and line determined automatically.
-///
-/// # Examples
-///
-/// Begin a span region, which will be terminated once `_span` goes out of scope:
-///
-/// ```
-/// let _span = tracy_client::span!("some span");
-/// ```
-#[macro_export]
-macro_rules! span {
-    ($name:expr) => {
-        $crate::span_impl!($name, 62)
-    };
-    ($name:expr, $callstack_depth:expr) => {
-        $crate::span_impl!($name, $callstack_depth)
-    };
-}
+mod frame;
+mod plot;
+mod span;
+mod state;
 
-#[macro_export]
+/// /!\ /!\ Please don't rely on anything in this module T_T /!\ /!\
 #[doc(hidden)]
-#[cfg(feature = "enable")]
-macro_rules! span_impl {
-    ($name:expr, $callstack_depth:expr) => {{
-        use std::ffi::CString;
-        use $crate::internal::once_cell::sync::Lazy;
+pub mod internal {
+    pub use crate::span::SpanLocation;
+    pub use once_cell::sync::Lazy;
+    pub use std::any::type_name;
+    use std::ffi::CString;
 
-        struct S;
-        static SRC_LOC: Lazy<$crate::internal::SrcLoc> = Lazy::new(|| {
-            let function_name = std::any::type_name::<S>();
-            let function_name = CString::new(&function_name[..function_name.len() - 3]).unwrap();
-            $crate::internal::SrcLoc {
-                data: $crate::internal::sys::___tracy_source_location_data {
-                    name: concat!($name, "\0").as_ptr().cast(),
+    #[inline(always)]
+    pub fn make_span_location(
+        type_name: &'static str,
+        span_name: *const u8,
+        file: *const u8,
+        line: u32,
+    ) -> crate::SpanLocation {
+        #[cfg(feature = "enable")]
+        {
+            let function_name = CString::new(&type_name[..type_name.len() - 3]).unwrap();
+            crate::SpanLocation {
+                data: crate::sys::___tracy_source_location_data {
+                    name: span_name.cast(),
                     function: function_name.as_ptr(),
-                    file: concat!(file!(), "\0").as_ptr().cast(),
-                    line: line!(),
+                    file: file.cast(),
+                    line,
                     color: 0,
                 },
                 _function_name: function_name,
             }
-        });
-        unsafe { $crate::Span::from_src_loc(&SRC_LOC.data, $callstack_depth) }
-    }};
-}
-
-#[macro_export]
-#[doc(hidden)]
-#[cfg(not(feature = "enable"))]
-macro_rules! span_impl {
-    ($name:expr, $callstack_depth:expr) => {
-        $crate::Span::disabled()
-    };
-}
-
-#[doc(hidden)]
-#[cfg(feature = "enable")]
-pub mod internal {
-    use std::ffi::CString;
-
-    pub use once_cell;
-    pub use tracy_client_sys as sys;
-
-    pub struct SrcLoc {
-        pub _function_name: CString,
-        pub data: sys::___tracy_source_location_data,
+        }
+        #[cfg(not(feature = "enable"))]
+        crate::SpanLocation { _internal: () }
     }
 
-    unsafe impl Send for SrcLoc {}
-    unsafe impl Sync for SrcLoc {}
+    #[inline(always)]
+    pub const unsafe fn create_frame_name(name: &'static str) -> crate::frame::FrameName {
+        crate::frame::FrameName(name)
+    }
+
+    #[inline(always)]
+    pub const unsafe fn create_plot(name: &'static str) -> crate::plot::PlotName {
+        crate::plot::PlotName(name)
+    }
 }
 
-/// A handle representing a span of execution.
-#[cfg(feature="enable")]
-pub struct Span(
-    sys::___tracy_c_zone_context,
-    std::marker::PhantomData<*mut sys::___tracy_c_zone_context>,
-);
+/// A type representing an enabled Tracy client.
+///
+/// Obtaining a `Client` is required in order to instrument the application.
+///
+/// Multiple copies of a Client may be live at once. As long as at least one `Client` value lives,
+/// the `Tracy` client is enabled globally. In addition to collecting information through the
+/// instrumentation inserted by you, the Tracy client may automatically collect information about
+/// execution of the program while it is enabled. All this information may be stored in memory
+/// until a profiler application connects to the client to read the data.
+///
+/// Depending on the build configuration, the client may collect and make available machine
+/// and source code of the application as well as other potentially sensitive information.
+///
+/// When all of the `Client` values are dropped, the underlying Tracy client will be shut down as
+/// well. Shutting down the `Client` will discard any information gathered up to that point that
+/// still hasn't been delivered to the profiler application.
+pub struct Client(());
 
-#[cfg(not(feature="enable"))]
-pub struct Span(());
-
-impl Span {
-    /// Start a new Tracy span.
-    ///
-    /// This function allocates the span information on the heap until it is read out by the
-    /// profiler.
+impl Client {
+    /// Output a message.
     ///
     /// `callstack_depth` specifies the maximum number of stack frames client should collect.
-    pub fn new(name: &str, function: &str, file: &str, line: u32, callstack_depth: u16) -> Self {
-        #[cfg(not(feature="enable"))]
-        {
-            return Self(());
-        }
-        #[cfg(feature="enable")]
+    pub fn message(&self, message: &str, callstack_depth: u16) {
+        #[cfg(feature = "enable")]
         unsafe {
-            let loc = sys::___tracy_alloc_srcloc_name(
-                line,
-                file.as_ptr() as _,
-                file.len(),
-                function.as_ptr() as _,
-                function.len(),
-                name.as_ptr() as _,
-                name.len(),
-            );
-            if callstack_depth == 0 {
-                Self(
-                    sys::___tracy_emit_zone_begin_alloc(loc, 1),
-                    std::marker::PhantomData,
-                )
-            } else {
-                Self(
-                    sys::___tracy_emit_zone_begin_alloc_callstack(
-                        loc,
-                        adjust_stack_depth(callstack_depth).into(),
-                        1,
-                    ),
-                    std::marker::PhantomData,
-                )
-            }
+            let stack_depth = adjust_stack_depth(callstack_depth).into();
+            sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth)
         }
     }
 
-    #[inline]
-    #[doc(hidden)]
-    #[cfg(not(feature = "enable"))]
-    pub fn disabled() -> Self {
-        Self(())
-    }
-
-    #[inline]
-    #[doc(hidden)]
-    #[cfg(feature = "enable")]
-    pub unsafe fn from_src_loc(
-        loc: &'static sys::___tracy_source_location_data,
-        callstack_depth: u16,
-    ) -> Self {
-        if callstack_depth == 0 {
-            Self(
-                sys::___tracy_emit_zone_begin(loc, 1),
-                std::marker::PhantomData,
-            )
-        } else {
-            Self(
-                sys::___tracy_emit_zone_begin_callstack(
-                    loc,
-                    adjust_stack_depth(callstack_depth).into(),
-                    1,
-                ),
-                std::marker::PhantomData,
-            )
-        }
-    }
-
-    /// Emit a numeric value associated with this span.
-    pub fn emit_value(&self, value: u64) {
-        // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-        #[cfg(feature="enable")]
+    /// Output a message with an associated color.
+    ///
+    /// `callstack_depth` specifies the maximum number of stack frames client should collect.
+    ///
+    /// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
+    /// component and most significant 8 bits represent the red component.
+    pub fn color_message(&self, message: &str, rgba: u32, callstack_depth: u16) {
+        #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_emit_zone_value(self.0, value);
+            let depth = adjust_stack_depth(callstack_depth).into();
+            sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth)
         }
     }
 
-    /// Emit some text associated with this span.
-    pub fn emit_text(&self, text: &str) {
-        // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-        #[cfg(feature="enable")]
+    /// Set the current thread name to the provided value.
+    pub fn set_thread_name(&self, name: &str) {
+        #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_emit_zone_text(self.0, text.as_ptr() as _, text.len());
-        }
-    }
-
-    /// Emit a color associated with this span.
-    pub fn emit_color(&self, color: u32) {
-        // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-        #[cfg(feature="enable")]
-        unsafe {
-            sys::___tracy_emit_zone_color(self.0, color);
+            let name = CString::new(name).unwrap();
+            // SAFE: `name` is a valid null-terminated string.
+            sys::___tracy_set_thread_name(name.as_ptr().cast())
         }
     }
 }
 
-impl Drop for Span {
-    fn drop(&mut self) {
-        // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-        #[cfg(feature="enable")]
-        unsafe {
-            sys::___tracy_emit_zone_end(self.0);
-        }
-    }
-}
-
-/// A profiling wrapper around an allocator.
+/// A profiling wrapper around another allocator.
 ///
 /// See documentation for [`std::alloc`](std::alloc) for more information about global allocators.
+///
+/// Note that to use this wrapper correctly you must ensure that the client is enabled before the
+/// first allocation occurs. The client must not not be disabled if this wrapper is used.
 ///
 /// # Examples
 ///
@@ -228,276 +152,81 @@ impl Drop for Span {
 pub struct ProfiledAllocator<T>(T, u16);
 
 impl<T> ProfiledAllocator<T> {
+    /// Construct a new `ProfiledAllocator`.
     pub const fn new(inner_allocator: T, callstack_depth: u16) -> Self {
         Self(inner_allocator, adjust_stack_depth(callstack_depth))
     }
 
-    fn emit_alloc(&self, ptr: *mut u8, size: usize) -> *mut u8 {
-        #[cfg(feature="enable")]
+    fn emit_alloc(&self, ptr: *mut u8, size: usize) {
+        #[cfg(feature = "enable")]
         unsafe {
             if self.1 == 0 {
-                sys::___tracy_emit_memory_alloc(ptr as _, size, 1);
+                sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
             } else {
-                sys::___tracy_emit_memory_alloc_callstack(ptr as _, size, self.1.into(), 1);
+                sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
             }
         }
-        ptr
     }
 
-    fn emit_free(&self, ptr: *mut u8) -> *mut u8 {
-        #[cfg(feature="enable")]
+    fn emit_free(&self, ptr: *mut u8) {
+        #[cfg(feature = "enable")]
         unsafe {
             if self.1 == 0 {
-                sys::___tracy_emit_memory_free(ptr as _, 1);
+                sys::___tracy_emit_memory_free(ptr.cast(), 1);
             } else {
-                sys::___tracy_emit_memory_free_callstack(ptr as _, self.1.into(), 1);
+                sys::___tracy_emit_memory_free_callstack(ptr.cast(), self.1.into(), 1);
             }
         }
-        ptr
     }
 }
 
 unsafe impl<T: alloc::GlobalAlloc> alloc::GlobalAlloc for ProfiledAllocator<T> {
     unsafe fn alloc(&self, layout: alloc::Layout) -> *mut u8 {
-        self.emit_alloc(self.0.alloc(layout), layout.size())
+        let alloc = unsafe {
+            // SAFE: all invariants satisfied by the caller.
+            self.0.alloc(layout)
+        };
+        self.emit_alloc(alloc, layout.size());
+        alloc
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: alloc::Layout) {
-        self.0.dealloc(self.emit_free(ptr), layout)
+        self.emit_free(ptr);
+        unsafe {
+            // SAFE: all invariants satisfied by the caller.
+            self.0.dealloc(ptr, layout)
+        }
     }
 
     unsafe fn alloc_zeroed(&self, layout: alloc::Layout) -> *mut u8 {
-        self.emit_alloc(self.0.alloc_zeroed(layout), layout.size())
+        let alloc = unsafe {
+            // SAFE: all invariants satisfied by the caller.
+            self.0.alloc_zeroed(layout)
+        };
+        self.emit_alloc(alloc, layout.size());
+        alloc
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: alloc::Layout, new_size: usize) -> *mut u8 {
-        self.emit_alloc(
-            self.0.realloc(self.emit_free(ptr), layout, new_size),
-            new_size,
-        )
+        self.emit_free(ptr);
+        let alloc = unsafe {
+            // SAFE: all invariants satisfied by the caller.
+            self.0.realloc(ptr, layout, new_size)
+        };
+        self.emit_alloc(alloc, new_size);
+        alloc
     }
 }
 
-/// Indicate that rendering of a continuous frame has ended.
-///
-/// Typically should be inserted after a buffer swap.
-///
-/// In case you want to annotate secondary continuous frame sets, call the macro with a string
-/// argument.
-///
-/// For non-continuous frame sets see [`Frame`](Frame).
-///
-/// # Examples
-///
-/// ```no_run
-/// # use tracy_client::*;
-/// # fn swap_buffers() {}
-/// swap_buffers();
-/// finish_continuous_frame!();
-/// finish_continuous_frame!("some other frame loop");
-/// ```
-#[macro_export]
-macro_rules! finish_continuous_frame {
-    () => {
-        unsafe {
-            $crate::finish_continuous_frame(std::ptr::null());
-        }
-    };
-    ($name: literal) => {
-        unsafe {
-            $crate::finish_continuous_frame(concat!($name, "\0").as_ptr() as _);
-        }
-    };
-}
-
-/// Use `finish_continuous_frame!` instead.
-///
-/// `name` must contain a NULL byte.
-#[doc(hidden)]
-pub unsafe fn finish_continuous_frame(name: *const u8) {
-    #[cfg(feature="enable")]
+/// Clamp the stack depth to the maximum supported by Tracy.
+#[inline(always)]
+pub(crate) const fn adjust_stack_depth(depth: u16) -> u16 {
+    #[cfg(windows)]
     {
-        sys::___tracy_emit_frame_mark(name as _);
+        62 ^ ((depth ^ 62) & 0u16.wrapping_sub((depth < 62) as _))
     }
-}
-
-/// Start a non-continuous frame region.
-#[macro_export]
-macro_rules! start_noncontinuous_frame {
-    ($name: literal) => {
-        unsafe {
-            $crate::Frame::start_noncontinuous_frame(concat!($name, "\0"))
-        }
-    };
-}
-
-/// A non-continuous frame region.
-///
-/// Create with the [`start_noncontinuous_frame`](start_noncontinuous_frame) macro.
-pub struct Frame(&'static str);
-
-impl Frame {
-    /// Use `start_noncontinuous_frame!` instead.
-    ///
-    /// `name` must contain a NULL byte.
-    #[doc(hidden)]
-    pub unsafe fn start_noncontinuous_frame(name: &'static str) -> Frame {
-        #[cfg(feature="enable")]
-        {
-            sys::___tracy_emit_frame_mark_start(name.as_ptr() as _);
-        }
-        Self(name)
-    }
-}
-
-impl Drop for Frame {
-    fn drop(&mut self) {
-        #[cfg(feature="enable")]
-        unsafe {
-            sys::___tracy_emit_frame_mark_end(self.0.as_ptr() as _);
-        }
-    }
-}
-
-/// Output a message.
-///
-/// `callstack_depth` specifies the maximum number of stack frames client should collect.
-pub fn message(message: &str, callstack_depth: u16) {
-    #[cfg(feature="enable")]
-    unsafe {
-        sys::___tracy_emit_message(
-            message.as_ptr() as _,
-            message.len(),
-            adjust_stack_depth(callstack_depth).into(),
-        )
-    }
-}
-
-/// Output a message with an associated color.
-///
-/// `callstack_depth` specifies the maximum number of stack frames client should collect.
-///
-/// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
-/// component and most significant 8 bits represent the red component.
-pub fn color_message(message: &str, rgba: u32, callstack_depth: u16) {
-    #[cfg(feature="enable")]
-    unsafe {
-        sys::___tracy_emit_messageC(
-            message.as_ptr() as _,
-            message.len(),
-            rgba >> 8,
-            adjust_stack_depth(callstack_depth).into(),
-        )
-    }
-}
-
-/// Set the current thread name to the provided value.
-pub fn set_thread_name(name: &str) {
-    #[cfg(feature="enable")]
-    unsafe {
-        let name = CString::new(name).unwrap();
-        // SAFE: `name` is a valid null-terminated string.
-        sys::___tracy_set_thread_name(name.as_ptr() as _)
-    }
-}
-
-/// Create an instance of plot that can plot arbitrary `f64` values.
-///
-/// # Examples
-///
-/// ```
-/// # use tracy_client::*;
-/// static TEMPERATURE: Plot = create_plot!("temperature");
-/// TEMPERATURE.point(37.0);
-/// ```
-#[macro_export]
-macro_rules! create_plot {
-    ($name: expr) => {
-        unsafe { $crate::Plot::new_unchecked(concat!($name, "\0")) }
-    };
-}
-
-/// A plot for plotting arbitary `f64` values.
-///
-/// Create with the [`create_plot`](create_plot) macro.
-pub struct Plot(&'static str);
-
-impl Plot {
-    /// Use `create_plot!` instead.
-    #[doc(hidden)]
-    pub const unsafe fn new_unchecked(name: &'static str) -> Self {
-        Self(name)
-    }
-
-    /// Add a point with `y`-axis value of `value` to the plot.
-    pub fn point(&self, value: f64) {
-        #[cfg(feature="enable")]
-        unsafe {
-            sys::___tracy_emit_plot(self.0.as_ptr() as _, value);
-        }
-    }
-}
-
-/// Adjust the stack depth to maximum supported by tracy.
-#[inline(always)]
-#[cfg(windows)]
-const fn adjust_stack_depth(depth: u16) -> u16 {
-    62 ^ ((depth ^ 62) & 0u16.wrapping_sub((depth < 62) as _))
-}
-
-/// Adjust the stack depth to maximum supported by tracy.
-#[inline(always)]
-#[cfg(not(windows))]
-const fn adjust_stack_depth(depth: u16) -> u16 {
-    depth
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[global_allocator]
-    static GLOBAL: ProfiledAllocator<alloc::System> = ProfiledAllocator::new(alloc::System, 100);
-
-    #[test]
-    fn zone_values() {
-        let span = Span::new("test zone values", "zone_values", file!(), line!(), 100);
-        span.emit_value(42);
-        span.emit_text("some text");
-    }
-
-    #[test]
-    fn finish_frameset() {
-        for _ in 0..10 {
-            finish_continuous_frame!();
-        }
-    }
-
-    #[test]
-    fn finish_secondary_frameset() {
-        for _ in 0..5 {
-            finish_continuous_frame!("every two seconds");
-        }
-    }
-
-    #[test]
-    fn non_continuous_frameset() {
-        let _: Frame = start_noncontinuous_frame!("weird frameset");
-    }
-
-    #[test]
-    fn plot_something() {
-        static PLOT: Plot = create_plot!("a plot");
-        for i in 0..10 {
-            PLOT.point(i as f64);
-        }
-    }
-
-    #[test]
-    fn span_macro() {
-        let span = span!("macro span", 42);
-        span.emit_value(42);
-        let span = span!("macro span");
-        span.emit_value(62);
+    #[cfg(not(windows))]
+    {
+        depth
     }
 }

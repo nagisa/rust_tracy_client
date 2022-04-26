@@ -33,17 +33,19 @@
 //!
 //! # Important note
 //!
-//! Unlike with many other subscriber implementations, simply depending on this crate is sufficient
-//! for tracy to be enabled at program startup, even if [`TracyLayer`](TracyLayer) is not
-//! registered as a subscriber. While not registering a `TracyLayer` will avoid Tracy from
-//! collecting spans, it still broadcasts discovery packets to the local network and exposes the
-//! data it collects in the background to that same network. Traces collected by Tracy may include
-//! source and assembly code as well.
+//! Depending on the configuration Tracy may broadcast discovery packets to the local network and
+//! expose the data it collects in the background to that same network. Traces collected by Tracy
+//! may include source and assembly code as well.
 //!
 //! As thus, you may want make sure to only enable the `tracing-tracy` crate conditionally, via the
 //! `enable` feature flag provided by this crate.
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
+//!
+//! # Features
+//!
+//! Refer to the [`client::sys`] crate for documentation on crate features. This crate re-exports
+//! all the features from [`client`].
 
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
@@ -58,7 +60,9 @@ use tracing_subscriber::{
     registry,
 };
 
-use tracy_client::{color_message, finish_continuous_frame, message, Span};
+use client::{Client, Span};
+
+pub use client;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -71,6 +75,7 @@ thread_local! {
 pub struct TracyLayer<F = DefaultFields> {
     fmt: F,
     stack_depth: u16,
+    client: Client,
 }
 
 impl TracyLayer<DefaultFields> {
@@ -81,6 +86,7 @@ impl TracyLayer<DefaultFields> {
         Self {
             fmt: DefaultFields::default(),
             stack_depth: 64,
+            client: Client::enable(),
         }
     }
 }
@@ -99,6 +105,7 @@ impl<F> TracyLayer<F> {
         TracyLayer {
             fmt,
             stack_depth: self.stack_depth,
+            client: self.client,
         }
     }
 
@@ -116,7 +123,7 @@ impl<F> TracyLayer<F> {
             while !data.is_char_boundary(max_len) {
                 max_len -= 1;
             }
-            color_message(error_msg, 0xFF000000, self.stack_depth);
+            self.client.color_message(error_msg, 0xFF000000, self.stack_depth);
             &data[..max_len]
         } else {
             data
@@ -178,7 +185,7 @@ where
                 };
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
-                    Span::new(
+                    self.client.span_alloc(
                         self.truncate_to_length(
                             &name,
                             file,
@@ -200,7 +207,7 @@ where
         TRACY_SPAN_STACK.with(|s| {
             if let Some((span, span_id)) = s.borrow_mut().pop_back() {
                 if id.into_u64() != span_id {
-                    color_message(
+                    self.client.color_message(
                         "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                         0xFF000000,
@@ -209,7 +216,7 @@ where
                 }
                 drop(span);
             } else {
-                color_message(
+                self.client.color_message(
                     "Exiting a tracing span, but got nothing on the tracy span stack!",
                     0xFF000000,
                     self.stack_depth,
@@ -226,7 +233,7 @@ where
         };
         event.record(&mut visitor);
         if !visitor.first {
-            message(
+            self.client.message(
                 self.truncate_to_length(
                     &visitor.dest,
                     "",
@@ -237,7 +244,7 @@ where
             );
         }
         if visitor.frame_mark {
-            finish_continuous_frame!();
+            self.client.frame_mark();
         }
     }
 }

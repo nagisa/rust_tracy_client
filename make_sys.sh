@@ -14,13 +14,15 @@ fi
 TAG="${LAST_RELEASE[0]}"
 TARBALL="${LAST_RELEASE[1]}"
 DESTINATION=/tmp/tracy-$TAG # could use mktemp, but unnecessary complexity.
+DEFINES=("-DTRACY_ENABLE" "-DTRACY_MANUAL_LIFETIME" "-DTRACY_FIBERS")
+
 echo "::set-output name=tracy-tag::$TAG"
 mkdir -p "$DESTINATION"
 
 curl -sL "$TARBALL" -o - | tar -f - -zxC "$DESTINATION"
 
 BASEDIR=("$DESTINATION"/*)
-REQUIRED=($(gcc --dependencies -DTRACY_ENABLE "$BASEDIR/TracyClient.cpp" | grep -o "$BASEDIR/[^ \\]*"))
+REQUIRED=($(gcc --dependencies ${DEFINES[@]} "$BASEDIR/TracyClient.cpp" | grep -o "$BASEDIR/[^ \\]*"))
 
 mkdir -p "tracy-client-sys/tracy"
 
@@ -31,7 +33,7 @@ bindgen "$BASEDIR/TracyC.h" \
   --size_t-is-usize \
   --disable-header-comment \
   -- \
-  -DTRACY_ENABLE
+  ${DEFINES[@]}
 sed -i 's/pub type/type/g' 'tracy-client-sys/src/generated.rs'
 
 for REQUIRED_FILE in ${REQUIRED[@]}
@@ -60,12 +62,12 @@ NEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
 NEXTNEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
   | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p' \
   | awk '{print $0+2}').0"
-NEXT_CLIENT_VERSION="0.12.$(echo "$CURRENT_CLIENT_VERSION" \
+NEXT_CLIENT_VERSION="0.13.$(echo "$CURRENT_CLIENT_VERSION" \
   | sed -nr 's,[0-9]+\.[0-9]+\.([0-9]+),\1,p' \
   | awk '{print $0+1}')"
 
 # Adjust the table in the README file…
-sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| $TAG | $NEXT_SYS_VERSION | 0.12.* | 0.7.* |")" \
+sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| $TAG | $NEXT_SYS_VERSION | 0.13.* | 0.9.* |")" \
     README.mkd
 # …the version in tracy-client-sys…
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
@@ -73,7 +75,7 @@ sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
 # …and the versions in tracy-client.
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_CLIENT_VERSION\" \2/" \
     tracy-client/Cargo.toml
-sed -i "s/^\(version =\) \".*\" \(# AUTO-UPDATE\)$/\1 \">=0.14.0, <$NEXTNEXT_SYS_VERSION\" \2/" \
+sed -i "s/^\(version =\) \".*\" \(# AUTO-UPDATE\)$/\1 \">=0.17.0, <$NEXTNEXT_SYS_VERSION\" \2/" \
     tracy-client/Cargo.toml
 
 # Make a commit that we'll PR

@@ -1,6 +1,6 @@
 [package]
 name = "tracing-tracy"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -18,19 +18,27 @@ harness = false
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
-tracy-client = { path = "../tracy-client", version = "0.12.1", default-features = false }
+client = { package = "tracy-client", path = "../tracy-client", version = "0.13.0", default-features = false, features = ["fibers"] }
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 tracing-attributes =  { version = "0.1"}
 tracing-futures = { version = "0.2" }
 futures = "0.3"
 
 [features]
-default = [ "enable" ]
-enable = [ "tracy-client/enable" ]
-delayed-init = [ "tracy-client/delayed-init" ]
-lowres-timer = [ "tracy-client/lowres-timer" ]
-noexit = [ "tracy-client/noexit" ]
-ondemand = [ "tracy-client/ondemand" ]
+# Refer to `tracy-client-sys` for documentation on features.
+default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
+            "broadcast" ]
+broadcast = ["client/broadcast"]
+code-transfer = ["client/code-transfer"]
+context-switch-tracing = ["client/context-switch-tracing"]
+enable = ["client/enable"]
+fibers = ["client/fibers"]
+timer-fallback = ["client/timer-fallback"]
+ondemand = ["client/ondemand"]
+only-ipv4 = ["client/only-ipv4"]
+only-localhost = ["client/only-localhost"]
+sampling = ["client/sampling"]
+system-tracing = ["client/system-tracing"]
