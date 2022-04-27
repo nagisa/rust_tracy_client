@@ -1,7 +1,12 @@
 name: Test tracy-client
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
+    branches: [main]
     paths:
     - 'tracy-client/**'
     - '.github/workflows/tracy-client.yml'
