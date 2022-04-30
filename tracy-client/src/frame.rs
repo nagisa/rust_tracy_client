@@ -19,14 +19,14 @@ impl Client {
     ///
     /// In a traditional rendering scenarios a frame mark should be inserted after a buffer swap.
     ///
-    /// ```no_run
+    /// ```
     /// use tracy_client::Client;
     /// # fn swap_buffers() {}
-    /// let client = tracy_client::Client::enable();
+    /// # let client = tracy_client::Client::start();
     /// // loop {
     /// //     ...
     ///        swap_buffers();
-    ///        client.frame_mark();
+    ///        Client::running().expect("client must be running").frame_mark();
     /// // }
     /// ```
     pub fn frame_mark(&self) {
@@ -43,14 +43,16 @@ impl Client {
     /// Much like with the primary frame mark, the secondary (named) frame mark should be inserted
     /// after some continuously repeating operation finishes one iteration of its processing.
     ///
-    /// ```no_run
-    /// use tracy_client::{Client, frame_name};
+    /// ```
+    /// use tracy_client::frame_name;
     /// # fn physics_tick() {}
-    /// let client = tracy_client::Client::enable();
+    /// # let client = tracy_client::Client::start();
     /// // loop {
     /// //     ...
     ///        physics_tick();
-    ///        client.secondary_frame_mark(frame_name!("physics"));
+    ///        tracy_client::Client::running()
+    ///            .expect("client must be running")
+    ///            .secondary_frame_mark(frame_name!("physics"));
     /// // }
     /// ```
     pub fn secondary_frame_mark(&self, name: FrameName) {
@@ -67,10 +69,12 @@ impl Client {
     ///
     /// # Examples
     ///
-    /// ```no_run
-    /// use tracy_client::{Client, frame_name};
-    /// let client = tracy_client::Client::enable();
-    /// client.non_continuous_frame(frame_name!("a frame"));
+    /// ```
+    /// use tracy_client::frame_name;
+    /// # let client = tracy_client::Client::start();
+    /// tracy_client::Client::running()
+    ///     .expect("client must be running")
+    ///     .non_continuous_frame(frame_name!("a frame"));
     /// ```
     pub fn non_continuous_frame(&self, name: FrameName) -> Frame {
         #[cfg(feature = "enable")]

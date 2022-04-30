@@ -18,7 +18,6 @@ pub struct Span {
 /// A statically allocated location information for a span.
 ///
 /// Construct with the [`span_location!`](crate::span_location) macro.
-#[cfg(feature = "enable")]
 pub struct SpanLocation {
     #[cfg(feature = "enable")]
     pub(crate) _function_name: CString,
@@ -41,6 +40,8 @@ impl Client {
     /// `callstack_depth` specifies the maximum number of stack frames the client should collect.
     /// On some systems this value may be clamped to a maximum value supported by the target.
     ///
+    /// The [`span!`](crate::span!) macro is a convenience wrapper over this method.
+    ///
     /// # Example
     ///
     /// In the following example the span is created with the location at which the
@@ -48,7 +49,7 @@ impl Client {
     ///
     /// ```rust
     /// use tracy_client::{Client, span_location};
-    /// let client = Client::enable();
+    /// let client = Client::start();
     /// {
     ///     let _span = client.span(span_location!("sleeping"), 100);
     ///     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -92,7 +93,7 @@ impl Client {
     ///
     /// ```rust
     /// use tracy_client::Client;
-    /// let client = Client::enable();
+    /// let client = Client::start();
     /// {
     ///     let _span = client.span_alloc("hello", "my_function", "hello.rs", 42, 100);
     ///     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -221,7 +222,8 @@ macro_rules! span_location {
 /// Begin a span region, which will be terminated once `_span` goes out of scope:
 ///
 /// ```
-/// use tracy_client::span;
+/// use tracy_client::{Client, span};
+/// # let _client = tracy_client::Client::start();
 /// let _span = span!("some span");
 /// ```
 ///
@@ -229,6 +231,7 @@ macro_rules! span_location {
 ///
 /// ```
 /// use tracy_client::span;
+/// # let _client = tracy_client::Client::start();
 /// let _span = span!("some span", 32);
 /// ```
 #[macro_export]

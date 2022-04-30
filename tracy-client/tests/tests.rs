@@ -14,13 +14,6 @@ fn basic_zone() {
     }
 }
 
-fn span_macro_no_client() {
-    let r = std::panic::catch_unwind(|| {
-        let _span = span!("sleep a little");
-    });
-    assert!(r.is_err());
-}
-
 fn alloc_zone() {
     let client = Client::start();
     let span = client.span_alloc("alloc_zone", "alloc_zone", file!(), line!(), 100);
@@ -95,14 +88,13 @@ fn main() {
     #[cfg(not(loom))]
     {
         basic_zone();
-        span_macro_no_client();
         alloc_zone();
         finish_frameset();
         finish_secondary_frameset();
         non_continuous_frameset();
         plot_something();
-        allocations();
         message();
+        allocations();
         tls_confusion();
         std::thread::spawn(|| {
             let _client = Client::start();

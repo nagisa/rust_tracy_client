@@ -95,6 +95,9 @@ pub mod internal {
 /// still hasn't been delivered to the profiler application.
 pub struct Client(());
 
+/// Instrumentation methods for outputting events occurring at a specific instant.
+///
+/// Data provided by this instrumentation can largely be considered to be equivalent to logs.
 impl Client {
     /// Output a message.
     ///
@@ -120,7 +123,9 @@ impl Client {
             sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth)
         }
     }
+}
 
+impl Client {
     /// Set the current thread name to the provided value.
     pub fn set_thread_name(&self, name: &str) {
         #[cfg(feature = "enable")]
@@ -136,8 +141,8 @@ impl Client {
 ///
 /// See documentation for [`std::alloc`](std::alloc) for more information about global allocators.
 ///
-/// Note that to use this wrapper correctly you must ensure that the client is enabled before the
-/// first allocation occurs. The client must not not be disabled if this wrapper is used.
+/// Note that this wrapper will start up the client on the first allocation, if not enabled
+/// already.
 ///
 /// # Examples
 ///
@@ -160,6 +165,7 @@ impl<T> ProfiledAllocator<T> {
     fn emit_alloc(&self, ptr: *mut u8, size: usize) {
         #[cfg(feature = "enable")]
         unsafe {
+            Client::start();
             if self.1 == 0 {
                 sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
             } else {

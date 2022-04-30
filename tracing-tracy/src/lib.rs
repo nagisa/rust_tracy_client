@@ -16,7 +16,7 @@
 //! * Events show up as messages in Tracy, however Tracy can struggle with large numbers of
 //! messages;
 //! * Some additional functionality such as plotting and memory allocation profiling is only
-//! available as part of the [tracy-client](tracy_client) crate.
+//! available as part of the [tracy-client](client) crate.
 //!
 //! # Examples
 //!
@@ -86,7 +86,7 @@ impl TracyLayer<DefaultFields> {
         Self {
             fmt: DefaultFields::default(),
             stack_depth: 64,
-            client: Client::enable(),
+            client: Client::start(),
         }
     }
 }
@@ -185,7 +185,7 @@ where
                 };
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
-                    self.client.span_alloc(
+                    self.client.clone().span_alloc(
                         self.truncate_to_length(
                             &name,
                             file,

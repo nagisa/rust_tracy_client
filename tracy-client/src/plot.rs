@@ -13,8 +13,10 @@ impl Client {
     /// # Examples
     ///
     /// ```
-    /// let client = tracy_client::Client::enable();
-    /// client.plot(tracy_client::plot_name!("temperature"), 37.0);
+    /// # let client = tracy_client::Client::start();
+    /// tracy_client::Client::running()
+    ///     .expect("client must be running")
+    ///     .plot(tracy_client::plot_name!("temperature"), 37.0);
     /// ```
     pub fn plot(&self, plot_name: PlotName, value: f64) {
         #[cfg(feature = "enable")]
