@@ -11,10 +11,9 @@ an observability tool.
 
 ## Important note
 
-Simply depending on crates in this repository is sufficient for tracy to be enabled at program
-startup, even if none of the APIs provided by this crate are invoked. Tracy will broadcast
-discovery packets to the local network and expose the data it collects in the background to that
-same network. Traces collected by Tracy may include source and assembly code as well.
+Depending on the configuration Tracy may broadcast discovery packets to the local network and
+expose the data it collects in the background to that same network. Traces collected by Tracy
+may include source and assembly code as well.
 
 As thus, you may want make sure to only enable the `tracing-tracy`, `tracy-client` and
 `tracy-client-sys` crates conditionally, via the `enable` feature flag provided by the crates.
