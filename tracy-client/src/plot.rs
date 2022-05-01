@@ -37,3 +37,17 @@ macro_rules! plot_name {
         unsafe { $crate::internal::create_plot(concat!($name, "\0")) }
     };
 }
+
+/// Convenience macro for [`Client::plot`] on the current client.
+///
+/// # Panics
+///
+/// - If a `Client` isn't currently running.
+#[macro_export]
+macro_rules! plot {
+    ($name: literal, $value: expr) => {{
+        $crate::Client::running()
+            .expect("plot! without a running Client")
+            .plot($crate::plot_name!($name), $value)
+    }};
+}

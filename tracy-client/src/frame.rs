@@ -108,3 +108,42 @@ impl Drop for Frame {
         }
     }
 }
+
+/// Convenience shortcut for [`Client::frame_mark`] on the current client.
+///
+/// # Panics
+///
+/// - If a `Client` isn't currently running.
+pub fn frame_mark() {
+    Client::running()
+        .expect("frame_mark! without a running Client")
+        .frame_mark();
+}
+
+/// Convenience macro for [`Client::secondary_frame_mark`] on the current client.
+///
+/// # Panics
+///
+/// - If a `Client` isn't currently running.
+#[macro_export]
+macro_rules! secondary_frame_mark {
+    ($name: literal) => {{
+        $crate::Client::running()
+            .expect("secondary_frame_mark! without a running Client")
+            .secondary_frame_mark($crate::frame_name!($name))
+    }};
+}
+
+/// Convenience macro for [`Client::non_continuous_frame`] on the current client.
+///
+/// # Panics
+///
+/// - If a `Client` isn't currently running.
+#[macro_export]
+macro_rules! non_continuous_frame {
+    ($name: literal) => {{
+        $crate::Client::running()
+            .expect("non_continuous_frame! without a running Client")
+            .non_continuous_frame($crate::frame_name!($name))
+    }};
+}

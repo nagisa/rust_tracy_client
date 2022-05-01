@@ -21,7 +21,7 @@
 //! Refer to the [`sys`] crate for documentation on crate features. This crate re-exports all the
 //! features from [`sys`].
 
-pub use crate::frame::{Frame, FrameName};
+pub use crate::frame::{frame_mark, Frame, FrameName};
 pub use crate::plot::PlotName;
 pub use crate::span::{Span, SpanLocation};
 use std::alloc;
@@ -36,7 +36,7 @@ mod state;
 /// /!\ /!\ Please don't rely on anything in this module T_T /!\ /!\
 #[doc(hidden)]
 pub mod internal {
-    pub use crate::span::SpanLocation;
+    pub use crate::{span::SpanLocation, sys};
     pub use once_cell::sync::Lazy;
     pub use std::any::type_name;
     use std::ffi::CString;
@@ -74,6 +74,15 @@ pub mod internal {
     #[inline(always)]
     pub const unsafe fn create_plot(name: &'static str) -> crate::plot::PlotName {
         crate::plot::PlotName(name)
+    }
+
+    #[inline(always)]
+    /// Safety: `name` must be null-terminated, and a `Client` must be enabled
+    pub unsafe fn set_thread_name(name: &'static str) {
+        #[cfg(feature = "enable")]
+        unsafe {
+            sys::___tracy_set_thread_name(name.as_ptr().cast())
+        }
     }
 }
 
@@ -135,6 +144,19 @@ impl Client {
             sys::___tracy_set_thread_name(name.as_ptr().cast())
         }
     }
+}
+
+/// Convenience macro for [`Client::set_thread_name`] on the current client.
+///
+/// # Panics
+///
+/// - If a `Client` isn't currently running.
+#[macro_export]
+macro_rules! set_thread_name {
+    ($name: literal) => {{
+        $crate::Client::running().expect("set_thread_name! without a running Client");
+        unsafe { $crate::internal::set_thread_name(concat!($name, "\0")) }
+    }};
 }
 
 /// A profiling wrapper around another allocator.

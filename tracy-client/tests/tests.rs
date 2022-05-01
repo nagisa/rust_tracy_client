@@ -27,6 +27,7 @@ fn finish_frameset() {
     for _ in 0..10 {
         client.frame_mark();
     }
+    frame_mark();
 }
 
 fn finish_secondary_frameset() {
@@ -34,12 +35,14 @@ fn finish_secondary_frameset() {
     for _ in 0..5 {
         client.secondary_frame_mark(frame_name!("secondary frame"));
     }
+    secondary_frame_mark!("secondary frame macro");
 }
 
 fn non_continuous_frameset() {
     const NON_CONTINUOUS: FrameName = frame_name!("non continuous");
     let client = Client::start();
     client.non_continuous_frame(NON_CONTINUOUS);
+    non_continuous_frame!("non continuous macro");
 }
 
 fn plot_something() {
@@ -48,6 +51,8 @@ fn plot_something() {
     for i in 0..10 {
         client.plot(TEMPERATURE, i as f64);
     }
+
+    plot!("temperature", 42.0);
 }
 
 fn allocations() {
@@ -84,6 +89,11 @@ fn tls_confusion() {
     let _ = Client::start();
 }
 
+fn set_thread_name() {
+    let _client = Client::start();
+    set_thread_name!("test thread");
+}
+
 fn main() {
     #[cfg(not(loom))]
     {
@@ -100,5 +110,6 @@ fn main() {
             let _client = Client::start();
             fib(25);
         });
+        set_thread_name();
     }
 }
