@@ -78,10 +78,10 @@ pub mod internal {
 
     #[inline(always)]
     /// Safety: `name` must be null-terminated, and a `Client` must be enabled
-    pub unsafe fn set_thread_name(name: &'static str) {
+    pub unsafe fn set_thread_name(name: *const u8) {
         #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_set_thread_name(name.as_ptr().cast())
+            sys::___tracy_set_thread_name(name.cast())
         }
     }
 }
@@ -136,17 +136,23 @@ impl Client {
 
 impl Client {
     /// Set the current thread name to the provided value.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the name contains interior null characters.
     pub fn set_thread_name(&self, name: &str) {
         #[cfg(feature = "enable")]
         unsafe {
             let name = CString::new(name).unwrap();
             // SAFE: `name` is a valid null-terminated string.
-            sys::___tracy_set_thread_name(name.as_ptr().cast())
+            internal::set_thread_name(name.as_ptr().cast());
         }
     }
 }
 
 /// Convenience macro for [`Client::set_thread_name`] on the current client.
+///
+/// Note that any interior null characters terminate the name early. This is not checked for.
 ///
 /// # Panics
 ///
@@ -155,7 +161,10 @@ impl Client {
 macro_rules! set_thread_name {
     ($name: literal) => {{
         $crate::Client::running().expect("set_thread_name! without a running Client");
-        unsafe { $crate::internal::set_thread_name(concat!($name, "\0")) }
+        unsafe {
+            // SAFE: `name` is a valid null-terminated string.
+            $crate::internal::set_thread_name(concat!($name, "\0").as_ptr().cast())
+        }
     }};
 }
 
