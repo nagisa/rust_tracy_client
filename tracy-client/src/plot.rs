@@ -33,7 +33,7 @@ impl Client {
 /// be used in a `const` context.
 #[macro_export]
 macro_rules! plot_name {
-    ($name: literal) => {
+    ($name: expr) => {
         unsafe { $crate::internal::create_plot(concat!($name, "\0")) }
     };
 }
@@ -45,7 +45,7 @@ macro_rules! plot_name {
 /// - If a `Client` isn't currently running.
 #[macro_export]
 macro_rules! plot {
-    ($name: literal, $value: expr) => {{
+    ($name: expr, $value: expr) => {{
         $crate::Client::running()
             .expect("plot! without a running Client")
             .plot($crate::plot_name!($name), $value)

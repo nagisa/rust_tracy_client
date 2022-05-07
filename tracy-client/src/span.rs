@@ -195,7 +195,7 @@ impl Drop for Span {
 /// ```
 #[macro_export]
 macro_rules! span_location {
-    ($name: literal) => {{
+    ($name: expr) => {{
         struct S;
         // String processing in `const` when, Oli?
         static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
@@ -236,10 +236,10 @@ macro_rules! span_location {
 /// ```
 #[macro_export]
 macro_rules! span {
-    ($name:literal) => {
+    ($name: expr) => {
         $crate::span!($name, 62)
     };
-    ($name:literal, $callstack_depth:expr) => {{
+    ($name: expr, $callstack_depth: expr) => {{
         let location = $crate::span_location!($name);
         $crate::Client::running()
             .expect("span! without a running Client")
