@@ -148,6 +148,23 @@ impl Client {
             internal::set_thread_name(name.as_ptr().cast());
         }
     }
+
+    /// Set the current thread name according to Rust's [`Thread::name()`].
+    ///
+    /// This is useful if the thread name is already set with Rust's standard library APIs, and you
+    /// want to copy the name to Tracy. Does nothing if the current thread is not named according
+    /// to [`Thread::name()`].
+    ///
+    /// [`Thread::name()`]: std::thread::Thread::name
+    pub fn set_thread_name_from_std(&self) {
+        #[cfg(feature = "enable")]
+        {
+            if let Some(name) = std::thread::current().name() {
+                // This will not panic because Rust disallows thread names with null bytes.
+                self.set_thread_name(name);
+            }
+        }
+    }
 }
 
 /// Convenience macro for [`Client::set_thread_name`] on the current client.
