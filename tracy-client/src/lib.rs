@@ -22,6 +22,7 @@
 //! features from [`sys`].
 
 pub use crate::frame::{frame_mark, Frame, FrameName};
+pub use crate::gpu::{GpuContext, GpuContextType, GpuSpan};
 pub use crate::plot::PlotName;
 pub use crate::span::{Span, SpanLocation};
 use std::alloc;
@@ -29,6 +30,7 @@ use std::ffi::CString;
 pub use sys;
 
 mod frame;
+mod gpu;
 mod plot;
 mod span;
 mod state;
