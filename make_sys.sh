@@ -34,7 +34,8 @@ bindgen "$BASEDIR/TracyC.h" \
   --disable-header-comment \
   -- \
   ${DEFINES[@]}
-sed -i 's/pub type/type/g' 'tracy-client-sys/src/generated.rs'
+# The space after type avoids hitting members called "type".
+sed -i 's/pub type /type/g' 'tracy-client-sys/src/generated.rs'
 
 for REQUIRED_FILE in ${REQUIRED[@]}
 do
