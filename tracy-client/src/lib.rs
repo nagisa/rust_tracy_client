@@ -110,7 +110,9 @@ pub struct Client(());
 impl Client {
     /// Output a message.
     ///
-    /// `callstack_depth` specifies the maximum number of stack frames client should collect.
+    /// Specifying a non-zero `callstack_depth` will enable collection of callstack for this
+    /// message. The number provided will limit the number of call frames collected. Note that
+    /// enabling callstack collection introduces a non-trivial amount of overhead to this call.
     pub fn message(&self, message: &str, callstack_depth: u16) {
         #[cfg(feature = "enable")]
         unsafe {
@@ -121,7 +123,9 @@ impl Client {
 
     /// Output a message with an associated color.
     ///
-    /// `callstack_depth` specifies the maximum number of stack frames client should collect.
+    /// Specifying a non-zero `callstack_depth` will enable collection of callstack for this
+    /// message. The number provided will limit the number of call frames collected. Note that
+    /// enabling callstack collection introduces a non-trivial amount of overhead to this call.
     ///
     /// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
     /// component and most significant 8 bits represent the red component.
@@ -189,6 +193,11 @@ pub struct ProfiledAllocator<T>(T, u16);
 
 impl<T> ProfiledAllocator<T> {
     /// Construct a new `ProfiledAllocator`.
+    ///
+    /// Specifying a non-zero `callstack_depth` will enable collection of callstack for this
+    /// message. The number provided will limit the number of call frames collected. Note that
+    /// enabling callstack collection introduces a non-trivial amount of overhead to each
+    /// allocation and deallocation.
     pub const fn new(inner_allocator: T, callstack_depth: u16) -> Self {
         Self(inner_allocator, adjust_stack_depth(callstack_depth))
     }

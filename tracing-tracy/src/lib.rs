@@ -85,7 +85,7 @@ impl TracyLayer<DefaultFields> {
     pub fn new() -> Self {
         Self {
             fmt: DefaultFields::default(),
-            stack_depth: 64,
+            stack_depth: 0,
             client: Client::start(),
         }
     }
@@ -94,7 +94,9 @@ impl TracyLayer<DefaultFields> {
 impl<F> TracyLayer<F> {
     /// Specify the maximum number of stack frames that will be collected.
     ///
-    /// Specifying 0 frames will disable stack trace collection.
+    /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
+    /// every instrumentation point. Specifying 0 frames (which is the default) will disable stack
+    /// trace collection.
     pub fn with_stackdepth(mut self, stack_depth: u16) -> Self {
         self.stack_depth = stack_depth;
         self
@@ -123,7 +125,8 @@ impl<F> TracyLayer<F> {
             while !data.is_char_boundary(max_len) {
                 max_len -= 1;
             }
-            self.client.color_message(error_msg, 0xFF000000, self.stack_depth);
+            self.client
+                .color_message(error_msg, 0xFF000000, self.stack_depth);
             &data[..max_len]
         } else {
             data
