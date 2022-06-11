@@ -279,5 +279,9 @@ impl Visit for TracyEventFieldVisitor {
 mod tests;
 #[cfg(test)]
 fn main() {
-    tests::main();
+    if std::env::args_os().any(|p| p == std::ffi::OsStr::new("--bench")) {
+        tests::bench();
+    } else {
+        tests::test();
+    }
 }

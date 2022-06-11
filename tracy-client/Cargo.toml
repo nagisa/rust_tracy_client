@@ -23,8 +23,8 @@ path = "tests/loom.rs"
 harness = false
 
 [[bench]]
-name = "state"
-path = "benches/state.rs"
+name = "client"
+path = "benches/client.rs"
 harness = false
 
 [dev-dependencies]
