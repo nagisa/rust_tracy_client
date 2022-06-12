@@ -47,22 +47,24 @@
 //! Refer to the [`client::sys`] crate for documentation on crate features. This crate re-exports
 //! all the features from [`client`].
 
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
-use tracing_core::{
-    field::{Field, Visit},
-    span::{Attributes, Id, Record},
-    Event, Subscriber,
-};
-use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
-use tracing_subscriber::{
-    fmt::FormattedFields,
-    layer::{Context, Layer},
-    registry,
-};
-
+use buffers::BufferPool;
 use client::{Client, Span};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use tracing_core::span::{Attributes, Id, Record};
+use tracing_core::{Event, Subscriber};
+use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
+use tracing_subscriber::fmt::FormattedFields;
+use tracing_subscriber::layer::{Context, Layer};
+use tracing_subscriber::registry;
 
 pub use client;
+mod buffers;
+pub mod fmt;
+
+const DEFAULT_BUFFER_CACHE_SIZE: usize = 32;
+const DEFAULT_BUFFER_SIZE: usize = 64;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -72,21 +74,24 @@ thread_local! {
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer<F = DefaultFields> {
+pub struct TracyLayer<F = fmt::TracyFields<DefaultFields>> {
     fmt: F,
     stack_depth: u16,
     client: Client,
+    buffer_pool: BufferPool<F>,
 }
 
-impl TracyLayer<DefaultFields> {
+impl TracyLayer<fmt::TracyFields<DefaultFields>> {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
+        let client = Client::start();
         Self {
-            fmt: DefaultFields::default(),
+            fmt: fmt::TracyFields::new(client.clone(), DefaultFields::default()),
             stack_depth: 0,
-            client: Client::start(),
+            client,
+            buffer_pool: BufferPool::new(DEFAULT_BUFFER_CACHE_SIZE, DEFAULT_BUFFER_SIZE),
         }
     }
 }
@@ -104,11 +109,22 @@ impl<F> TracyLayer<F> {
 
     /// Use a custom field formatting implementation.
     pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
+        let num_buffers = self.buffer_pool.pool.capacity();
+        let buffer_size = self.buffer_pool.buffer_size;
         TracyLayer {
             fmt,
             stack_depth: self.stack_depth,
             client: self.client,
+            buffer_pool: self.buffer_pool.remake(num_buffers, buffer_size),
         }
+    }
+
+    /// Preallocate a formatting buffer cache with the specified number of elements.
+    ///
+    /// By default the buffer cache holds 32 items.
+    pub fn with_buffer_cache(mut self, num_buffers: usize, buffer_size: usize) -> Self {
+        self.buffer_pool = self.buffer_pool.remake(num_buffers, buffer_size);
+        self
     }
 
     fn truncate_to_length<'d>(
@@ -147,12 +163,9 @@ where
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id) {
-            let mut extensions = span.extensions_mut();
-            if extensions.get_mut::<FormattedFields<F>>().is_none() {
-                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
-                if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
-                    extensions.insert(fields);
-                }
+            let mut fields = self.buffer_pool.get();
+            if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
+                span.extensions_mut().insert(fields);
             }
         }
     }
@@ -229,52 +242,18 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
-        let mut visitor = TracyEventFieldVisitor {
-            dest: String::with_capacity(64),
-            first: true,
-            frame_mark: false,
-        };
-        event.record(&mut visitor);
-        if !visitor.first {
+        buffers::with_event_buffer::<F, _>(|ff| {
+            self.fmt.format_fields(ff.as_writer(), event).unwrap();
             self.client.message(
                 self.truncate_to_length(
-                    &visitor.dest,
+                    ff.as_str(),
                     "",
                     "",
                     "event message is too long and was truncated",
                 ),
                 self.stack_depth,
             );
-        }
-        if visitor.frame_mark {
-            self.client.frame_mark();
-        }
-    }
-}
-
-struct TracyEventFieldVisitor {
-    dest: String,
-    frame_mark: bool,
-    first: bool,
-}
-
-impl Visit for TracyEventFieldVisitor {
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        // FIXME: this is a very crude formatter, but we don’t have
-        // an easy way to do anything better...
-        if self.first {
-            let _ = write!(&mut self.dest, "{} = {:?}", field.name(), value);
-            self.first = false;
-        } else {
-            let _ = write!(&mut self.dest, ", {} = {:?}", field.name(), value);
-        }
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        match (value, field.name()) {
-            (true, "tracy.frame_mark") => self.frame_mark = true,
-            _ => self.record_debug(field, &value),
-        }
+        });
     }
 }
 
@@ -282,9 +261,5 @@ impl Visit for TracyEventFieldVisitor {
 mod tests;
 #[cfg(test)]
 fn main() {
-    if std::env::args_os().any(|p| p == std::ffi::OsStr::new("--bench")) {
-        tests::bench();
-    } else {
-        tests::test();
-    }
+    tests::main();
 }
