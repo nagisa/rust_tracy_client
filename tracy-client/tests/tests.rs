@@ -16,7 +16,7 @@ fn basic_zone() {
 
 fn alloc_zone() {
     let client = Client::start();
-    let span = client.span_alloc("alloc_zone", "alloc_zone", file!(), line!(), 100);
+    let span = client.span_alloc(Some("alloc_zone"), "alloc_zone", file!(), line!(), 100);
     span.emit_value(42);
     span.emit_color(0x00FF0000);
     span.emit_text("some text");
@@ -63,7 +63,7 @@ fn allocations() {
 }
 
 fn fib(i: u16) -> u64 {
-    let span = span!("fib", 100);
+    let span = span!();
     span.emit_text(&format!("fib({})", i));
     let result = match i {
         0 => 0,
@@ -94,6 +94,13 @@ fn set_thread_name() {
     set_thread_name!("test thread");
 }
 
+fn nameless_span() {
+    let client = Client::start();
+    span!();
+    client.span_alloc(None, "nameless_span", file!(), line!(), 0);
+    set_thread_name!("test thread");
+}
+
 fn main() {
     #[cfg(not(loom))]
     {
@@ -106,10 +113,12 @@ fn main() {
         message();
         allocations();
         tls_confusion();
-        std::thread::spawn(|| {
+        nameless_span();
+        let thread = std::thread::spawn(|| {
             let _client = Client::start();
             fib(25);
         });
+        thread.join().unwrap();
         set_thread_name();
     }
 }

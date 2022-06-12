@@ -39,6 +39,7 @@ pub mod internal {
     pub use crate::{span::SpanLocation, sys};
     pub use once_cell::sync::Lazy;
     pub use std::any::type_name;
+    pub use std::ptr::null;
     use std::ffi::CString;
 
     #[inline(always)]
