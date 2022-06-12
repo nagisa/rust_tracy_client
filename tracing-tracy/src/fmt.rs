@@ -20,11 +20,7 @@ where
 {
     type Visitor = TracyFieldsVisitor<F::Visitor>;
     fn make_visitor(&self, target: W) -> Self::Visitor {
-        TracyFieldsVisitor {
-            client: self.0.clone(),
-            inner_visitor: self.1.make_visitor(target),
-            frame_mark: false,
-        }
+        TracyFieldsVisitor::new(self.0.clone(), self.1.make_visitor(target))
     }
 }
 
@@ -35,6 +31,14 @@ pub struct TracyFieldsVisitor<V> {
 }
 
 impl<V> TracyFieldsVisitor<V> {
+    pub fn new(client: client::Client, inner: V) -> Self {
+        Self {
+            inner_visitor: inner,
+            client,
+            frame_mark: false,
+        }
+    }
+
     fn visit_field<Val, Cb: FnOnce(&mut V)>(&mut self, field: &Field, _: Val, otherwise: Cb) {
         if field.name().starts_with("tracy.") {
         } else {
@@ -89,5 +93,46 @@ impl<R, V: VisitOutput<R>> VisitOutput<R> for TracyFieldsVisitor<V> {
 
     fn visit<F: RecordFields>(self, fields: &F) -> R {
         self.inner_visitor.visit(fields)
+    }
+}
+
+/// This formatter will not format any fields at all.
+///
+/// This will result in `tracy` falling back to showing function names for each span and event
+/// isntead.
+pub(crate) struct CollectMessageVisitor<'a>(pub(crate) Option<&'a str>);
+
+impl<'a> Visit for CollectMessageVisitor<'a> {
+    fn record_f64(&mut self, _: &Field, _: f64) {}
+    fn record_i64(&mut self, _: &Field, _: i64) {}
+    fn record_u64(&mut self, _: &Field, _: u64) {}
+    fn record_bool(&mut self, _: &Field, _: bool) {}
+    fn record_error(&mut self, _: &Field, _: &(dyn std::error::Error + 'static)) {}
+    fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "message" {
+            unsafe {
+                // SAFETY: this is somewhat tricky. We know this visitor will not outlive the event
+                // being recorded, but there is no good way to tell rustc that because of
+                // https://github.com/tokio-rs/valuable/issues/97
+                self.0
+                    .replace(std::str::from_utf8_unchecked(std::slice::from_raw_parts(
+                        value.as_ptr(),
+                        value.len(),
+                    )));
+            }
+        }
+    }
+}
+
+impl<'a> VisitOutput<Option<&'a str>> for CollectMessageVisitor<'a> {
+    fn finish(self) -> Option<&'a str> {
+        self.0
+    }
+
+    fn visit<F: RecordFields>(mut self, fields: &F) -> Option<&'a str> {
+        fields.record(&mut self);
+        self.finish()
     }
 }

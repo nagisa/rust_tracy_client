@@ -116,7 +116,7 @@ fn main() {
         nameless_span();
         let thread = std::thread::spawn(|| {
             let _client = Client::start();
-            fib(25);
+            fib(20);
         });
         thread.join().unwrap();
         set_thread_name();

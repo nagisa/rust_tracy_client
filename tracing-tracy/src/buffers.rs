@@ -61,13 +61,13 @@ impl<F> BufferPool<F> {
         BufferPool { pool, buffer_size }
     }
 
-    pub(crate) fn get(&self) -> ReturnableBuffer<F> {
+    pub(crate) fn get(&self) -> Buffer<F> {
         let buffer = self.pool.pop();
-        let buffer = buffer.map(|b| ReturnableBuffer {
+        let buffer = buffer.map(|b| Buffer {
             buffer: ManuallyDrop::new(b),
             pool: Some(Arc::clone(&self.pool)),
         });
-        buffer.unwrap_or_else(|| ReturnableBuffer {
+        buffer.unwrap_or_else(|| Buffer {
             buffer: ManuallyDrop::new(FormattedFields::new(String::with_capacity(
                 DEFAULT_BUFFER_SIZE,
             ))),
@@ -76,13 +76,13 @@ impl<F> BufferPool<F> {
     }
 }
 
-pub(crate) struct ReturnableBuffer<F> {
+pub(crate) struct Buffer<F> {
     buffer: ManuallyDrop<FormattedFields<F>>,
     // This is hella expensive :(
     pool: Option<Arc<ArrayQueue<FormattedFields<F>>>>,
 }
 
-impl<F> Drop for ReturnableBuffer<F> {
+impl<F> Drop for Buffer<F> {
     fn drop(&mut self) {
         let mut buffer = unsafe {
             // SAFE: we ensure that `Drop` is the only place where this method is called on this
@@ -96,14 +96,14 @@ impl<F> Drop for ReturnableBuffer<F> {
     }
 }
 
-impl<F> std::ops::Deref for ReturnableBuffer<F> {
+impl<F> std::ops::Deref for Buffer<F> {
     type Target = FormattedFields<F>;
     fn deref(&self) -> &Self::Target {
         &*self.buffer
     }
 }
 
-impl<F> std::ops::DerefMut for ReturnableBuffer<F> {
+impl<F> std::ops::DerefMut for Buffer<F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.buffer
     }

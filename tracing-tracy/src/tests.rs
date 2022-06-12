@@ -100,56 +100,102 @@ fn span_with_fields() {
 }
 
 fn benchmark_span(c: &mut Criterion) {
-    c.bench_function("span/callstack", |bencher| {
+    c.bench_function("span/callstack+keys_and_values", |bencher| {
         let layer =
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                let _span = tracing::error_span!("message").entered();
+                let _span = tracing::error_span!("span/callstack+keys_and_values", foo=42).entered();
             });
         })
     });
 
-    c.bench_function("span/no_callstack", |bencher| {
+    c.bench_function("span/keys_and_values", |bencher| {
         let layer =
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                let _span = tracing::error_span!("message").entered();
+                let _span = tracing::error_span!("span/keys_and_values", foo=42).entered();
+            });
+        })
+    });
+
+    c.bench_function("span", |bencher| {
+        let layer = tracing_subscriber::registry().with(
+            super::TracyLayer::new()
+                .with_stackdepth(0)
+                .with_keys_and_values(false),
+        );
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                let _span = tracing::error_span!("span", foo=42).entered();
             });
         })
     });
 }
 
 fn benchmark_message(c: &mut Criterion) {
-    c.bench_function("event/callstack", |bencher| {
+    c.bench_function("event/callstack+keys_and_values", |bencher| {
         let layer =
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                tracing::error!("message");
+                tracing::error!("event/callstack+keys_and_values");
             });
         })
     });
 
-    c.bench_function("event/no_callstack", |bencher| {
+    c.bench_function("event/keys_and_values", |bencher| {
         let layer =
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                tracing::error!("message");
+                tracing::error!("event/keys_and_values");
             });
         })
     });
 
-    c.bench_function("event_kvs/no_callstack", |bencher| {
+    c.bench_function("event", |bencher| {
+        let layer = tracing_subscriber::registry().with(
+            super::TracyLayer::new()
+                .with_stackdepth(0)
+                .with_keys_and_values(false),
+        );
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                tracing::error!("event");
+            });
+        })
+    });
+
+    c.bench_function("event_with_kv/keys_and_values", |bencher| {
         let layer =
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let error = None::<()>;
                 tracing::error!(
-                    message = "message",
+                    message = "event_with_kv/keys_and_values",
+                    number = 42u32,
+                    boolean = true,
+                    string = "benchmark",
+                    ?error
+                );
+            });
+        })
+    });
+
+    c.bench_function("event_with_kv", |bencher| {
+        let layer = tracing_subscriber::registry().with(
+            super::TracyLayer::new()
+                .with_stackdepth(0)
+                .with_keys_and_values(false),
+        );
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                let error = None::<()>;
+                tracing::error!(
+                    message = "event_with_kv",
                     number = 42u32,
                     boolean = true,
                     string = "benchmark",
@@ -185,5 +231,6 @@ pub(crate) fn main() {
             .build()
             .expect("tokio runtime");
         runtime.block_on(async_futures());
+        std::thread::sleep(std::time::Duration::from_secs(3))
     }
 }
