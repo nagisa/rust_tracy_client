@@ -99,14 +99,14 @@ impl Client {
     /// use tracy_client::Client;
     /// let client = Client::start();
     /// {
-    ///     let _span = client.span_alloc("hello", "my_function", "hello.rs", 42, 100);
+    ///     let _span = client.span_alloc(Some("hello"), "my_function", "hello.rs", 42, 100);
     ///     std::thread::sleep(std::time::Duration::from_millis(100));
     /// } // _span ends
     /// ```
     #[inline]
     pub fn span_alloc(
         self,
-        name: &str,
+        name: Option<&str>,
         function: &str,
         file: &str,
         line: u32,
@@ -120,8 +120,8 @@ impl Client {
                 file.len(),
                 function.as_ptr().cast(),
                 function.len(),
-                name.as_ptr().cast(),
-                name.len(),
+                name.map(|n| n.as_ptr().cast()).unwrap_or(std::ptr::null()),
+                name.unwrap_or("").len(),
             );
             let zone = if callstack_depth == 0 {
                 sys::___tracy_emit_zone_begin_alloc(loc, 1)
@@ -199,6 +199,20 @@ impl Drop for Span {
 /// ```
 #[macro_export]
 macro_rules! span_location {
+    () => {{
+        struct S;
+        // String processing in `const` when, Oli?
+        static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
+            $crate::internal::Lazy::new(|| {
+                $crate::internal::make_span_location(
+                    $crate::internal::type_name::<S>(),
+                    $crate::internal::null(),
+                    concat!(file!(), "\0").as_ptr(),
+                    line!(),
+                )
+            });
+        &*LOC
+    }};
     ($name: expr) => {{
         struct S;
         // String processing in `const` when, Oli?
@@ -244,6 +258,11 @@ macro_rules! span_location {
 /// instrumentation.
 #[macro_export]
 macro_rules! span {
+    () => {
+        $crate::Client::running()
+            .expect("span! without a running Client")
+            .span($crate::span_location!(), 0)
+    };
     ($name: expr) => {
         $crate::span!($name, 0)
     };
