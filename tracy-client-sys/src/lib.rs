@@ -35,7 +35,6 @@ mod generated;
 #[cfg(feature = "enable")]
 pub use generated::*;
 
-
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 mod generated_manual_lifetime;
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]

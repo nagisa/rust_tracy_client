@@ -1,163 +1,415 @@
-use std::sync::atomic::{AtomicU16, AtomicU8, Ordering};
+use once_cell::sync::Lazy;
+use std::{
+    convert::TryInto,
+    sync::{Arc, Mutex},
+};
 
-use crate::Client;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-struct ___tracy_gpu_new_context_data {
-    gpu_time: i64,
-    period: f32,
-    context: u8,
-    flags: u8,
-    type_: u8,
-}
+use crate::{Client, SpanLocation};
 
 #[repr(u8)]
-///
+/// The API label associated with the given gpu context. The list here only includes
+/// APIs that are currently supported by Tracy's own gpu implementations.
+//
+// Copied from `tracy-client-sys/tracy/common/TracyQueue.hpp:391`. Comment on enum states
+// that the values are stable, due to potential serialization issues, so copying this enum
+// shouldn't be a problem.
 pub enum GpuContextType {
-    ///
-    Invalid,
-    ///
-    OpenGL,
-    ///
-    Vulkan,
-    ///
-    OpenCL,
-    ///
-    Direct3D12,
-    ///
-    Direct3D11,
+    /// Stand in for other types of contexts.
+    Invalid = 0,
+    /// An OpenGL context
+    OpenGL = 1,
+    /// A Vulkan context
+    Vulkan = 2,
+    /// An OpenCL context
+    OpenCL = 3,
+    /// A D3D12 context.
+    Direct3D12 = 4,
+    /// A D3D11 context.
+    Direct3D11 = 5,
 }
 
+/// Context for creating gpu spans.
 ///
+/// Generally corresponds to a single hardware queue.
+///
+/// The flow of creating and using gpu context generally looks like this:
+///
+/// ```rust,no_run
+/// # let client = tracy_client::Client::start();
+/// // The period of the gpu clock in nanoseconds, as provided by your GPU api.
+/// // This value corresponds to 1GHz.
+/// let period: f32 = 1_000_000_000.0;
+///
+/// // GPU API: Record writing a timestamp and resolve that to a mappable buffer.
+/// // GPU API: Submit the command buffer writing the timestamp.
+/// // GPU API: Immediately block until the submission is finished.
+/// // GPU API: Map buffer, get timestamp value.
+/// let starting_timestamp: i64 = /* whatever you get from this timestamp */ 0;
+///
+/// // Create the gpu context
+/// let gpu_context = client.new_gpu_context(
+///     Some("MyContext"),
+///     tracy_client::GpuContextType::Vulkan,
+///     starting_timestamp,
+///     period
+/// ).unwrap();
+///
+/// // Now you have some work that you want to time on the gpu.
+///
+/// // GPU API: Record writing a timestamp before the work.
+/// let mut span = gpu_context.span_alloc("MyGpuSpan1", "My::Work", "myfile.rs", 12).unwrap();
+///
+/// // GPU API: Record work.
+///
+/// // GPU API: Record writing a timestamp after the work.
+/// span.end_zone();
+///
+/// // Some time later, once the written timestamp values are available on the cpu.
+/// # let (starting_timestamp, ending_timestamp) = (0, 0);
+///
+/// // Consumes span.
+/// span.upload_timestamp(starting_timestamp, ending_timestamp);
+/// ```
+#[derive(Clone)]
 pub struct GpuContext {
     #[cfg(feature = "enable")]
     _client: Client,
     #[cfg(feature = "enable")]
-    context: u8,
+    value: u8,
+    #[cfg(feature = "enable")]
+    gpu_start_timestamp: i64,
+    #[cfg(feature = "enable")]
+    span_freelist: Arc<Mutex<Vec<u16>>>,
+    _private: (),
 }
 #[cfg(feature = "enable")]
-static GPU_CONTEXT_INDEX: AtomicU8 = AtomicU8::new(0);
+static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
 
+/// Errors that can occur when creating a gpu context.
+#[derive(Debug)]
+pub enum GpuContextCreationError {
+    /// More than `u8::MAX` contexts have been created at any point in the program.
+    TooManyContextsCreated,
+}
+
+impl std::fmt::Display for GpuContextCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "More than 255 contexts have been created at any point in the exection of this program."
+        )
+    }
+}
+
+impl std::error::Error for GpuContextCreationError {}
+
+#[derive(Debug, PartialEq)]
+enum GpuSpanState {
+    /// The span has been started. All gpu spans start in this state.
+    Started,
+    /// The span has been ended, waiting for timestamp upload.
+    Ended,
+    /// All timestamps have been uploaded.
+    Uploaded,
+}
+
+/// Span for timing gpu work.
 ///
+/// See the [context level documentation](GpuContext) for more information on use.
+///
+/// If the span is dropped early, the following happens:
+/// - If the span has not been ended, the span is ended. AND
+/// - If the span has not had values uploaded, the span is uploaded with
+///   the timestamps marking the start of the current gpu context. This
+///   will put the span out of the way of other spans.
+#[must_use]
 pub struct GpuSpan {
     #[cfg(feature = "enable")]
-    _client: Client,
-    #[cfg(feature = "enable")]
-    context: u8,
+    context: GpuContext,
     #[cfg(feature = "enable")]
     start_query_id: u16,
     #[cfg(feature = "enable")]
-    end_query_id: Option<u16>,
+    end_query_id: u16,
+    #[cfg(feature = "enable")]
+    state: GpuSpanState,
+    _private: (),
 }
-#[cfg(feature = "enable")]
-static GPU_SPAN_INDEX: AtomicU16 = AtomicU16::new(0);
+
+/// Errors that can occur when creating a gpu span.
+#[derive(Debug)]
+pub enum GpuSpanCreationError {
+    /// More than `32767` spans are still waiting for gpu data.
+    TooManyPendingSpans,
+}
+
+impl std::fmt::Display for GpuSpanCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Too many spans still waiting for gpu data. There may not be more than 32767 spans that are pending gpu data at once."
+        )
+    }
+}
+
+impl std::error::Error for GpuSpanCreationError {}
 
 impl Client {
+    /// Creates a new GPU context.
     ///
+    /// - 'name' is the name of the context.
+    /// - 'ty' is the type (backend) of the context.
+    /// - 'gpu_timestamp' is the gpu side timestamp the corresponds (as close as possible) to this call.
+    /// - 'period' is the period of the gpu clock in nanoseconds (setting 1.0 means the clock is 1GHz, 1000.0 means 1MHz, etc).
+    ///
+    /// See the [type level documentation](GpuContext) for more information.
+    ///
+    /// # Errors
+    ///
+    /// - If more than 255 contexts were made during the lifetime of the application.
     pub fn new_gpu_context(
         self,
         name: Option<&str>,
         ty: GpuContextType,
         gpu_timestamp: i64,
         period: f32,
-    ) -> GpuContext {
+    ) -> Result<GpuContext, GpuContextCreationError> {
         #[cfg(feature = "enable")]
-        unsafe {
-            let context = GPU_CONTEXT_INDEX.fetch_add(1, Ordering::Relaxed);
+        {
+            // We use a mutex to lock the context index to prevent races when using fetch_add.
+            //
+            // This prevents multiple contexts getting the same context id.
+            let mut context_index_guard = GPU_CONTEXT_INDEX.lock().unwrap();
+            if *context_index_guard == 255 {
+                return Err(GpuContextCreationError::TooManyContextsCreated);
+            }
+            let context = *context_index_guard;
+            *context_index_guard += 1;
+            drop(context_index_guard);
 
-            sys::___tracy_emit_gpu_new_context(std::mem::transmute(
-                ___tracy_gpu_new_context_data {
-                    gpu_time: gpu_timestamp,
+            // SAFETY:
+            // - We know we aren't re-using the context id because of the above logic.
+            unsafe {
+                sys::___tracy_emit_gpu_new_context_serial(sys::___tracy_gpu_new_context_data {
+                    gpuTime: gpu_timestamp,
                     period,
                     context,
                     flags: 0,
                     type_: ty as u8,
-                },
-            ));
+                })
+            };
 
             if let Some(name) = name {
-                sys::___tracy_emit_gpu_context_name_serial(sys::___tracy_gpu_context_name_data {
-                    context,
-                    name: name.as_ptr() as *const i8,
-                    len: name.len().min(u16::MAX as usize) as u16,
-                })
+                // SAFTEY:
+                // - We've allocated a context.
+                // - The names will copied into the command stream, so the pointers do not need to last.
+                unsafe {
+                    sys::___tracy_emit_gpu_context_name_serial(
+                        sys::___tracy_gpu_context_name_data {
+                            context,
+                            name: name.as_ptr().cast(),
+                            len: name.len().try_into().unwrap_or(u16::MAX),
+                        },
+                    )
+                }
             }
 
-            GpuContext {
+            Ok(GpuContext {
                 _client: self,
-                context,
-            }
+                value: context,
+                gpu_start_timestamp: gpu_timestamp,
+                span_freelist: Arc::new(Mutex::new((0..=u16::MAX).collect())),
+                _private: (),
+            })
         }
         #[cfg(not(feature = "enable"))]
-        GpuContext {}
+        Ok(GpuContext { _private: () })
     }
 }
 
 impl GpuContext {
+    #[cfg(feature = "enable")]
+    fn alloc_span_ids(&self) -> Result<(u16, u16), GpuSpanCreationError> {
+        let mut freelist = self.span_freelist.lock().unwrap();
+        if freelist.len() < 2 {
+            return Err(GpuSpanCreationError::TooManyPendingSpans);
+        }
+        // These unwraps are unreachable.
+        let start = freelist.pop().unwrap();
+        let end = freelist.pop().unwrap();
+        Ok((start, end))
+    }
+
+    /// Creates a new gpu span with the given source location.
     ///
-    pub fn span_alloc(&self, name: &str, function: &str, file: &str, line: u32) -> GpuSpan {
+    /// This should be called right next to where you record the corresponding gpu timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    ///
+    /// # Errors
+    ///
+    /// - If there are more than 32767 spans waiting for gpu data at once.
+    pub fn span(
+        &self,
+        span_location: &'static SpanLocation,
+    ) -> Result<GpuSpan, GpuSpanCreationError> {
         #[cfg(feature = "enable")]
-        unsafe {
-            let srcloc = sys::___tracy_alloc_srcloc_name(
-                line,
-                file.as_ptr().cast(),
-                file.len(),
-                function.as_ptr().cast(),
-                function.len(),
-                name.as_ptr().cast(),
-                name.len(),
-            );
+        {
+            let (start_query_id, end_query_id) = self.alloc_span_ids()?;
 
-            let query_id = GPU_SPAN_INDEX.fetch_add(1, Ordering::Relaxed);
+            // SAFETY: We know that the span location is valid forever as it is 'static. `usize` will
+            // always be smaller than u64, so no data will be lost.
+            unsafe {
+                sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
+                    srcloc: (&span_location.data) as *const _ as usize as u64,
+                    queryId: start_query_id,
+                    context: self.value,
+                })
+            };
 
-            sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
-                srcloc,
-                queryId: query_id,
-                context: self.context,
-            });
-
-            GpuSpan {
-                _client: Client::running().unwrap(),
-                context: self.context,
-                start_query_id: query_id,
-                end_query_id: None,
-            }
+            Ok(GpuSpan {
+                context: self.clone(),
+                start_query_id,
+                end_query_id,
+                state: GpuSpanState::Started,
+                _private: (),
+            })
         }
         #[cfg(not(feature = "enable"))]
-        GpuSpan {}
+        Ok(GpuSpan { _private: () })
+    }
+
+    /// Creates a new gpu span with the given name, function, file, and line.
+    ///
+    /// This should be called right next to where you record the corresponding gpu timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    ///
+    /// # Errors
+    ///
+    /// - If there are more than 32767 spans waiting for gpu data at once.
+    pub fn span_alloc(
+        &self,
+        name: &str,
+        function: &str,
+        file: &str,
+        line: u32,
+    ) -> Result<GpuSpan, GpuSpanCreationError> {
+        #[cfg(feature = "enable")]
+        {
+            let srcloc = unsafe {
+                sys::___tracy_alloc_srcloc_name(
+                    line,
+                    file.as_ptr().cast(),
+                    file.len(),
+                    function.as_ptr().cast(),
+                    function.len(),
+                    name.as_ptr().cast(),
+                    name.len(),
+                )
+            };
+
+            let (start_query_id, end_query_id) = self.alloc_span_ids()?;
+
+            unsafe {
+                sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
+                    srcloc,
+                    queryId: start_query_id,
+                    context: self.value,
+                })
+            };
+
+            Ok(GpuSpan {
+                context: self.clone(),
+                start_query_id,
+                end_query_id,
+                state: GpuSpanState::Started,
+                _private: (),
+            })
+        }
+        #[cfg(not(feature = "enable"))]
+        Ok(GpuSpan { _private: () })
     }
 }
 
 impl GpuSpan {
+    /// Marks the end of the given gpu span. This should be called right next to where you record
+    /// the corresponding gpu timestamp for the end of the span. This allows tracy to correctly
+    /// associate the cpu time with the gpu timestamp.
     ///
+    /// Only the first time you call this function will it actually emit a gpu zone end event. Any
+    /// subsequent calls will be ignored.
     pub fn end_zone(&mut self) {
         #[cfg(feature = "enable")]
-        unsafe {
-            let query_id = GPU_SPAN_INDEX.fetch_add(1, Ordering::Relaxed);
-            sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
-                queryId: query_id,
-                context: self.context,
-            });
-            self.end_query_id = Some(query_id);
+        {
+            if self.state != GpuSpanState::Started {
+                return;
+            }
+            unsafe {
+                sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
+                    queryId: self.end_query_id,
+                    context: self.context.value,
+                })
+            };
+            self.state = GpuSpanState::Ended;
         }
     }
 
-    ///
-    pub fn upload_timestamp(self, start_timestamp: i64, end_timestamp: i64) {
+    /// Uploads the gpu timestamps associated with the span start and end to tracy,
+    /// closing out the span.
+    pub fn upload_timestamp(mut self, start_timestamp: i64, end_timestamp: i64) {
         #[cfg(feature = "enable")]
+        self.upload_timestamp_impl(start_timestamp, end_timestamp);
+    }
+
+    #[cfg(feature = "enable")]
+    fn upload_timestamp_impl(&mut self, start_timestamp: i64, end_timestamp: i64) {
+        assert_eq!(
+            self.state,
+            GpuSpanState::Ended,
+            "You must call end_zone before uploading timestamps."
+        );
         unsafe {
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: start_timestamp,
                 queryId: self.start_query_id,
-                context: self.context,
-            });
+                context: self.context.value,
+            })
+        };
 
+        unsafe {
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: end_timestamp,
-                queryId: self.end_query_id.expect("called upload_timestamp without calling end_zone first"),
-                context: self.context,
-            });
+                queryId: self.end_query_id,
+                context: self.context.value,
+            })
+        };
+
+        // Put the ids back into the freelist.
+        let mut freelist = self.context.span_freelist.lock().unwrap();
+        freelist.push(self.start_query_id);
+        freelist.push(self.end_query_id);
+        drop(freelist);
+
+        self.state = GpuSpanState::Uploaded;
+    }
+}
+
+impl Drop for GpuSpan {
+    fn drop(&mut self) {
+        #[cfg(feature = "enable")]
+        match self.state {
+            GpuSpanState::Started => {
+                self.end_zone();
+                self.upload_timestamp_impl(
+                    self.context.gpu_start_timestamp,
+                    self.context.gpu_start_timestamp,
+                );
+            }
+            GpuSpanState::Ended => {
+                self.upload_timestamp_impl(
+                    self.context.gpu_start_timestamp,
+                    self.context.gpu_start_timestamp,
+                );
+            }
+            GpuSpanState::Uploaded => {}
         }
     }
 }

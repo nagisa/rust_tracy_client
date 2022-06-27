@@ -1,5 +1,8 @@
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
-#![cfg_attr(not(feature = "enable"), allow(unused_variables, unused_imports))]
+#![cfg_attr(
+    not(feature = "enable"),
+    allow(unused_variables, unused_imports, unused_mut, dead_code)
+)]
 //! This crate is a set of safe bindings to the client library of the [Tracy profiler].
 //!
 //! If you have already instrumented your application with `tracing`, consider the `tracing-tracy`
@@ -24,7 +27,9 @@
 #![cfg_attr(tracy_client_docs, feature(doc_auto_cfg))]
 
 pub use crate::frame::{frame_mark, Frame, FrameName};
-pub use crate::gpu::{GpuContext, GpuContextType, GpuSpan};
+pub use crate::gpu::{
+    GpuContext, GpuContextCreationError, GpuContextType, GpuSpan, GpuSpanCreationError,
+};
 pub use crate::plot::PlotName;
 pub use crate::span::{Span, SpanLocation};
 use std::alloc;
@@ -43,8 +48,8 @@ pub mod internal {
     pub use crate::{span::SpanLocation, sys};
     pub use once_cell::sync::Lazy;
     pub use std::any::type_name;
-    pub use std::ptr::null;
     use std::ffi::CString;
+    pub use std::ptr::null;
 
     #[inline(always)]
     pub fn make_span_location(

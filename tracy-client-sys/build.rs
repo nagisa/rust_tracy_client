@@ -5,7 +5,7 @@ fn link_dependencies() {
         Ok("linux" | "android") => println!("cargo:rustc-link-lib=dl"),
         Ok("freebsd" | "dragonfly") => println!("cargo:rustc-link-lib=c"),
         Ok("windows") => println!("cargo:rustc-link-lib=user32"),
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             writeln!(::std::io::stderr(), "Unable to get target_os=`{}`!", e)
                 .expect("could not report the error");
