@@ -1,16 +1,10 @@
-use std::sync::atomic::{AtomicU16, AtomicU8, Ordering};
+use once_cell::sync::Lazy;
+use std::sync::{
+    atomic::{AtomicU16, Ordering},
+    Arc, Mutex,
+};
 
 use crate::Client;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-struct ___tracy_gpu_new_context_data {
-    gpu_time: i64,
-    period: f32,
-    context: u8,
-    flags: u8,
-    type_: u8,
-}
 
 #[repr(u8)]
 ///
@@ -30,14 +24,17 @@ pub enum GpuContextType {
 }
 
 ///
+#[derive(Clone)]
 pub struct GpuContext {
     #[cfg(feature = "enable")]
-    _client: Client,
+    client: Client,
     #[cfg(feature = "enable")]
     context: u8,
+    #[cfg(feature = "enable")]
+    span_index: Arc<AtomicU16>,
 }
 #[cfg(feature = "enable")]
-static GPU_CONTEXT_INDEX: AtomicU8 = AtomicU8::new(0);
+static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
 
 ///
 pub struct GpuSpan {
@@ -46,12 +43,11 @@ pub struct GpuSpan {
     #[cfg(feature = "enable")]
     context: u8,
     #[cfg(feature = "enable")]
-    start_query_id: u16,
+    // This is the index first query, the second query is always a wrapping_add(1) above this.
+    query_id: u16,
     #[cfg(feature = "enable")]
-    end_query_id: Option<u16>,
+    ended: bool,
 }
-#[cfg(feature = "enable")]
-static GPU_SPAN_INDEX: AtomicU16 = AtomicU16::new(0);
 
 impl Client {
     ///
@@ -61,14 +57,21 @@ impl Client {
         ty: GpuContextType,
         gpu_timestamp: i64,
         period: f32,
-    ) -> GpuContext {
+    ) -> Option<GpuContext> {
         #[cfg(feature = "enable")]
         unsafe {
-            let context = GPU_CONTEXT_INDEX.fetch_add(1, Ordering::Relaxed);
+            // We use a mutex to lock the context index to prevent races when using fetch_add.
+            let mut context_index_guard = GPU_CONTEXT_INDEX.lock().unwrap();
+            if *context_index_guard == 255 {
+                return None;
+            }
+            let context = *context_index_guard;
+            *context_index_guard += 1;
+            drop(context_index_guard);
 
             sys::___tracy_emit_gpu_new_context(std::mem::transmute(
-                ___tracy_gpu_new_context_data {
-                    gpu_time: gpu_timestamp,
+                sys::___tracy_gpu_new_context_data {
+                    gpuTime: gpu_timestamp,
                     period,
                     context,
                     flags: 0,
@@ -84,13 +87,14 @@ impl Client {
                 })
             }
 
-            GpuContext {
-                _client: self,
+            Some(GpuContext {
+                client: self,
                 context,
-            }
+                span_index: Arc::new(AtomicU16::new(0)),
+            })
         }
         #[cfg(not(feature = "enable"))]
-        GpuContext {}
+        Some(GpuContext {})
     }
 }
 
@@ -109,7 +113,8 @@ impl GpuContext {
                 name.len(),
             );
 
-            let query_id = GPU_SPAN_INDEX.fetch_add(1, Ordering::Relaxed);
+            // Allocate two ids
+            let query_id = self.span_index.fetch_add(2, Ordering::Relaxed);
 
             sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
                 srcloc,
@@ -118,10 +123,10 @@ impl GpuContext {
             });
 
             GpuSpan {
-                _client: Client::running().unwrap(),
+                _client: self.client.clone(),
                 context: self.context,
-                start_query_id: query_id,
-                end_query_id: None,
+                query_id,
+                ended: false,
             }
         }
         #[cfg(not(feature = "enable"))]
@@ -131,15 +136,18 @@ impl GpuContext {
 
 impl GpuSpan {
     ///
-    pub fn end_zone(&mut self) {
+    pub fn end_zone(&mut self) -> bool {
         #[cfg(feature = "enable")]
         unsafe {
-            let query_id = GPU_SPAN_INDEX.fetch_add(1, Ordering::Relaxed);
+            if self.ended {
+                return false;
+            }
             sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
-                queryId: query_id,
+                queryId: self.query_id.wrapping_add(1),
                 context: self.context,
             });
-            self.end_query_id = Some(query_id);
+            self.ended = true;
+            true
         }
     }
 
@@ -149,13 +157,13 @@ impl GpuSpan {
         unsafe {
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: start_timestamp,
-                queryId: self.start_query_id,
+                queryId: self.query_id,
                 context: self.context,
             });
 
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: end_timestamp,
-                queryId: self.end_query_id.expect("called upload_timestamp without calling end_zone first"),
+                queryId: self.query_id.wrapping_add(1),
                 context: self.context,
             });
         }
