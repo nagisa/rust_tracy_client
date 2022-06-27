@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.13.2" # AUTO-BUMP
+version = "0.14.0" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -23,8 +23,8 @@ path = "tests/loom.rs"
 harness = false
 
 [[bench]]
-name = "state"
-path = "benches/state.rs"
+name = "client"
+path = "benches/client.rs"
 harness = false
 
 [dev-dependencies]

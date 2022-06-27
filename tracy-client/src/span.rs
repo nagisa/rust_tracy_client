@@ -37,8 +37,10 @@ impl Client {
     /// In order to obtain a [`SpanLocation`] value to provide to this function use the
     /// [`span_location!`](crate::span_location) macro.
     ///
-    /// `callstack_depth` specifies the maximum number of stack frames the client should collect.
-    /// On some systems this value may be clamped to a maximum value supported by the target.
+    /// Specifying a non-zero `callstack_depth` will enable collection of callstack for this
+    /// message. The number provided will limit the number of call frames collected. Note that
+    /// enabling callstack collection introduces a non-trivial amount of overhead to this call. On
+    /// some systems this value may be clamped to a maximum value supported by the target.
     ///
     /// The [`span!`](crate::span!) macro is a convenience wrapper over this method.
     ///
@@ -83,8 +85,10 @@ impl Client {
     /// profiler. Prefer the [`Client::span`] as a allocation-free and faster alternative when
     /// possible.
     ///
-    /// `callstack_depth` specifies the maximum number of stack frames client should collect. On
-    /// some systems this value may be clamped to a maximum value supported on the target.
+    /// Specifying a non-zero `callstack_depth` will enable collection of callstack for this
+    /// message. The number provided will limit the number of call frames collected. Note that
+    /// enabling callstack collection introduces a non-trivial amount of overhead to this call. On
+    /// some systems this value may be clamped to a maximum value supported by the target.
     ///
     /// # Example
     ///
@@ -227,17 +231,21 @@ macro_rules! span_location {
 /// let _span = span!("some span");
 /// ```
 ///
-/// It is also possible to specify the number of frames to capture in the callstack:
+/// It is also possible to enable collection of the callstack by specifying a limit of call stack
+/// frames to record:
 ///
 /// ```
 /// use tracy_client::span;
 /// # let _client = tracy_client::Client::start();
 /// let _span = span!("some span", 32);
 /// ```
+///
+/// Note, however, that collecting callstack introduces a non-trivial overhead at the point of
+/// instrumentation.
 #[macro_export]
 macro_rules! span {
     ($name: expr) => {
-        $crate::span!($name, 62)
+        $crate::span!($name, 0)
     };
     ($name: expr, $callstack_depth: expr) => {{
         let location = $crate::span_location!($name);

@@ -1,3 +1,4 @@
+use criterion::Criterion;
 use futures::future::join_all;
 use tracing::{debug, event, info, info_span, span, Level};
 use tracing_attributes::instrument;
@@ -98,7 +99,7 @@ fn span_with_fields() {
     let _enter = span.enter();
 }
 
-pub(crate) fn main() {
+pub(crate) fn test() {
     tracing::subscriber::set_global_default(
         tracing_subscriber::registry().with(super::TracyLayer::new()),
     )
@@ -116,4 +117,54 @@ pub(crate) fn main() {
         .build()
         .expect("tokio runtime");
     runtime.block_on(async_futures());
+}
+
+fn benchmark_span(c: &mut Criterion) {
+    c.bench_function("span/callstack", |bencher| {
+        let layer =
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                let _span = tracing::error_span!("message").entered();
+            });
+        })
+    });
+
+    c.bench_function("span/no_callstack", |bencher| {
+        let layer =
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                let _span = tracing::error_span!("message").entered();
+            });
+        })
+    });
+}
+
+fn benchmark_message(c: &mut Criterion) {
+    c.bench_function("event/callstack", |bencher| {
+        let layer =
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                tracing::error!("message");
+            });
+        })
+    });
+
+    c.bench_function("event/no_callstack", |bencher| {
+        let layer =
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
+        tracing::subscriber::with_default(layer, || {
+            bencher.iter(|| {
+                tracing::error!("message");
+            });
+        })
+    });
+}
+
+pub(crate) fn bench() {
+    criterion::criterion_group!(benches, benchmark_span, benchmark_message);
+    benches();
+    Criterion::default().configure_from_args().final_summary();
 }
