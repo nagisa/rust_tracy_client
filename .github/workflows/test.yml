@@ -1,5 +1,3 @@
-name: Test tracing-tracy
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -7,11 +5,6 @@ concurrency:
 on:
   push:
     branches: [main]
-    paths:
-    - 'tracing-tracy/**'
-    - '.github/workflows/tracing-tracy.yml'
-    - '!tracing-tracy/**.mkd'
-    - '!tracing-tracy/LICENSE-*'
   pull_request:
     types: [opened, repoened, synchronize]
 
@@ -26,20 +19,22 @@ jobs:
         flags: ["", "--release", "--no-default-features", "--all-features"]
     timeout-minutes: 20
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2
-        with:
-            submodules: 'recursive'
-      - name: Install Rust ${{ matrix.rust_toolchain }}
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
         with:
             toolchain: ${{ matrix.rust_toolchain }}
             profile: minimal
             default: true
-      - name: Test
+      # Testing requires edition2021, which is unstable in 1.53.0
+      - if: ${{ matrix.rust_toolchain == '1.53.0' }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: ${{ matrix.flags }}
+      - if: ${{ matrix.rust_toolchain != '1.53.0' }}
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path=tracing-tracy/Cargo.toml ${{ matrix.flags }} -- --nocapture
+          args: ${{ matrix.flags }} -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
