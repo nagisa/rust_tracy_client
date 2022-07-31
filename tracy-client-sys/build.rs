@@ -48,25 +48,32 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
 }
 
 fn main() {
-    if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
-        set_feature_defines(cc::Build::new())
-            .file("tracy/TracyClient.cpp")
-            .define("TRACY_MANUAL_LIFETIME", None)
-            .define("TRACY_DELAYED_INIT", None)
-            .warnings(false)
-            .cpp(true)
-            .flag_if_supported("-std=c++11")
-            .compile("libtracy-client.a");
-    }
-
-    match std::env::var("CARGO_CFG_TARGET_OS") {
-        Ok(target_os) => {
-            link_libraries(&target_os);
+    if let Ok(lib) = std::env::var("TRACY_CLIENT_LIB") {
+        if let Ok(lib_path) = std::env::var("TRACY_CLIENT_LIB_PATH") {
+            println!("cargo:rustc-link-search={}", lib_path);
         }
-        Err(e) => {
-            writeln!(::std::io::stderr(), "Unable to get target_os=`{}`!", e)
-                .expect("could not report the error");
-            ::std::process::exit(0xfd);
+        println!("cargo:rustc-link-lib={}", lib);
+    } else {
+        if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
+            set_feature_defines(cc::Build::new())
+                .file("tracy/TracyClient.cpp")
+                .define("TRACY_MANUAL_LIFETIME", None)
+                .define("TRACY_DELAYED_INIT", None)
+                .warnings(false)
+                .cpp(true)
+                .flag_if_supported("-std=c++11")
+                .compile("libtracy-client.a");
+        }
+
+        match std::env::var("CARGO_CFG_TARGET_OS") {
+            Ok(target_os) => {
+                link_libraries(&target_os);
+            }
+            Err(e) => {
+                writeln!(::std::io::stderr(), "Unable to get target_os=`{}`!", e)
+                    .expect("could not report the error");
+                ::std::process::exit(0xfd);
+            }
         }
     }
 }
