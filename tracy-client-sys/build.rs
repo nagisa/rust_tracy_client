@@ -50,7 +50,7 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
 fn main() {
     if let Ok(lib) = std::env::var("TRACY_CLIENT_LIB") {
         if let Ok(lib_path) = std::env::var("TRACY_CLIENT_LIB_PATH") {
-            println!("cargo:rustc-link-search={}", lib_path);
+            println!("cargo:rustc-link-search=native={}", lib_path);
         }
         println!("cargo:rustc-link-lib={}", lib);
     } else {
