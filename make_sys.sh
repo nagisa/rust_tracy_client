@@ -18,15 +18,14 @@ DEFINES=("-DTRACY_ENABLE" "-DTRACY_MANUAL_LIFETIME" "-DTRACY_FIBERS")
 
 echo "::set-output name=tracy-tag::$TAG"
 mkdir -p "$DESTINATION"
-
 curl -sL "$TARBALL" -o - | tar -f - -zxC "$DESTINATION"
-
 BASEDIR=("$DESTINATION"/*)
-REQUIRED=($(gcc --dependencies ${DEFINES[@]} "$BASEDIR/TracyClient.cpp" | grep -o "$BASEDIR/[^ \\]*"))
 
-mkdir -p "tracy-client-sys/tracy"
+rm -rf "tracy-client-sys/tracy/"
+cp -r "$BASEDIR/public" "tracy-client-sys/tracy"
+cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
 
-bindgen "$BASEDIR/TracyC.h" \
+bindgen "tracy-client-sys/tracy/tracy/TracyC.h" \
   -o 'tracy-client-sys/src/generated.rs' \
   --whitelist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --whitelist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
@@ -37,16 +36,6 @@ bindgen "$BASEDIR/TracyC.h" \
 # The space after type avoids hitting members called "type".
 sed -i 's/pub type /type /g' 'tracy-client-sys/src/generated.rs'
 
-for REQUIRED_FILE in ${REQUIRED[@]}
-do
-  DEST_PATH=tracy-client-sys/tracy"${REQUIRED_FILE#$BASEDIR}"
-  mkdir -p $(dirname "$DEST_PATH")
-  cp "$REQUIRED_FILE" "$DEST_PATH"
-done
-
-cp -r "$BASEDIR/libbacktrace" "tracy-client-sys/tracy/"
-cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
-
 # Avoid running the other steps if we haven't really updated tracy (e.g. if bindgen/rustfmt version
 # changed)
 if ! git diff --quiet "tracy-client-sys/tracy"; then
@@ -55,8 +44,9 @@ else
     exit 0
 fi
 
-CURRENT_SYS_VERSION=$(sed -n 's/version = "\(.*\)" # AUTO-BUMP/\1/p' tracy-client-sys/Cargo.toml)
-CURRENT_CLIENT_VERSION=$(sed -n 's/version = "\(.*\)" # AUTO-BUMP/\1/p' tracy-client/Cargo.toml)
+CURRENT_SYS_VERSION=$(sed -n 's/^version = "\(.*\)" # AUTO-BUMP$/\1/p' tracy-client-sys/Cargo.toml)
+CURRENT_CLIENT_VERSION=$(sed -n 's/^version = "\(.*\)" # AUTO-BUMP$/\1/p' tracy-client/Cargo.toml)
+CURRENT_TRACING_VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' tracing-tracy/Cargo.toml)
 NEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
   | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p' \
   | awk '{print $0+1}').0"
@@ -68,7 +58,7 @@ NEXT_CLIENT_VERSION="0.14.$(echo "$CURRENT_CLIENT_VERSION" \
   | awk '{print $0+1}')"
 
 # Adjust the table in the README file…
-sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| $TAG | $NEXT_SYS_VERSION | 0.14.* | 0.10.* |")" \
+sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| %-6s | %-15s | %-12s | %-13s |" "$TAG" "$NEXT_SYS_VERSION" "$NEXT_CLIENT_VERSION" "$CURRENT_TRACING_VERSION")" \
     README.mkd
 # …the version in tracy-client-sys…
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
