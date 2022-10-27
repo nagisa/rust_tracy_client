@@ -18,7 +18,7 @@ jobs:
             profile: minimal
             default: true
       - name: Install bindgen
-        run: cargo install bindgen
+        run: cargo install bindgen-cli
       - name: Install dependencies
         run: sudo apt install -y jq curl
       - name: Run the generation script
