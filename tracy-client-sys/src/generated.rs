@@ -235,6 +235,85 @@ fn bindgen_test_layout____tracy_gpu_zone_begin_data() {
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
+pub struct ___tracy_gpu_zone_begin_callstack_data {
+    pub srcloc: u64,
+    pub depth: ::std::os::raw::c_int,
+    pub queryId: u16,
+    pub context: u8,
+}
+#[test]
+fn bindgen_test_layout____tracy_gpu_zone_begin_callstack_data() {
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_zone_begin_callstack_data>(),
+        16usize,
+        concat!(
+            "Size of: ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data)
+        )
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_zone_begin_callstack_data>(),
+        8usize,
+        concat!(
+            "Alignment of ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_zone_begin_callstack_data>())).srcloc as *const _
+                as usize
+        },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data),
+            "::",
+            stringify!(srcloc)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_zone_begin_callstack_data>())).depth as *const _
+                as usize
+        },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data),
+            "::",
+            stringify!(depth)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_zone_begin_callstack_data>())).queryId as *const _
+                as usize
+        },
+        12usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data),
+            "::",
+            stringify!(queryId)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_zone_begin_callstack_data>())).context as *const _
+                as usize
+        },
+        14usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_zone_begin_callstack_data),
+            "::",
+            stringify!(context)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_zone_end_data {
     pub queryId: u16,
     pub context: u8,
@@ -414,6 +493,62 @@ fn bindgen_test_layout____tracy_gpu_context_name_data() {
         )
     );
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ___tracy_gpu_calibration_data {
+    pub gpuTime: i64,
+    pub cpuDelta: i64,
+    pub context: u8,
+}
+#[test]
+fn bindgen_test_layout____tracy_gpu_calibration_data() {
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_calibration_data>(),
+        24usize,
+        concat!("Size of: ", stringify!(___tracy_gpu_calibration_data))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_calibration_data>(),
+        8usize,
+        concat!("Alignment of ", stringify!(___tracy_gpu_calibration_data))
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_calibration_data>())).gpuTime as *const _ as usize
+        },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_calibration_data),
+            "::",
+            stringify!(gpuTime)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_calibration_data>())).cpuDelta as *const _ as usize
+        },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_calibration_data),
+            "::",
+            stringify!(cpuDelta)
+        )
+    );
+    assert_eq!(
+        unsafe {
+            &(*(::std::ptr::null::<___tracy_gpu_calibration_data>())).context as *const _ as usize
+        },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_calibration_data),
+            "::",
+            stringify!(context)
+        )
+    );
+}
 type TracyCZoneCtx = ___tracy_c_zone_context;
 extern "C" {
     pub fn ___tracy_startup_profiler();
@@ -491,7 +626,18 @@ extern "C" {
     pub fn ___tracy_emit_zone_value(ctx: TracyCZoneCtx, value: u64);
 }
 extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin(arg1: ___tracy_gpu_zone_begin_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin_callstack(arg1: ___tracy_gpu_zone_begin_callstack_data);
+}
+extern "C" {
     pub fn ___tracy_emit_gpu_zone_begin_alloc(arg1: ___tracy_gpu_zone_begin_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin_alloc_callstack(
+        arg1: ___tracy_gpu_zone_begin_callstack_data,
+    );
 }
 extern "C" {
     pub fn ___tracy_emit_gpu_zone_end(data: ___tracy_gpu_zone_end_data);
@@ -506,7 +652,23 @@ extern "C" {
     pub fn ___tracy_emit_gpu_context_name(arg1: ___tracy_gpu_context_name_data);
 }
 extern "C" {
+    pub fn ___tracy_emit_gpu_calibration(arg1: ___tracy_gpu_calibration_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin_serial(arg1: ___tracy_gpu_zone_begin_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin_callstack_serial(
+        arg1: ___tracy_gpu_zone_begin_callstack_data,
+    );
+}
+extern "C" {
     pub fn ___tracy_emit_gpu_zone_begin_alloc_serial(arg1: ___tracy_gpu_zone_begin_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_zone_begin_alloc_callstack_serial(
+        arg1: ___tracy_gpu_zone_begin_callstack_data,
+    );
 }
 extern "C" {
     pub fn ___tracy_emit_gpu_zone_end_serial(data: ___tracy_gpu_zone_end_data);
@@ -519,6 +681,9 @@ extern "C" {
 }
 extern "C" {
     pub fn ___tracy_emit_gpu_context_name_serial(arg1: ___tracy_gpu_context_name_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_calibration_serial(arg1: ___tracy_gpu_calibration_data);
 }
 extern "C" {
     pub fn ___tracy_connected() -> ::std::os::raw::c_int;

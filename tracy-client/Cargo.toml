@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.14.1" # AUTO-BUMP
+version = "0.14.2" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -36,7 +36,7 @@ once_cell = "1.10"
 [dependencies.sys]
 path = "../tracy-client-sys"
 package = "tracy-client-sys"
-version = ">=0.17.0, <0.19.0" # AUTO-UPDATE
+version = ">=0.17.0, <0.20.0" # AUTO-UPDATE
 default-features = false
 
 [target.'cfg(loom)'.dependencies.loom]
