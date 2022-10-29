@@ -189,12 +189,12 @@ where
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
                     self.client.clone().span_alloc(
-                        self.truncate_to_length(
+                        Some(self.truncate_to_length(
                             &name,
                             file,
                             "",
                             "span information is too long and was truncated",
-                        ),
+                        )),
                         "",
                         file,
                         line,
