@@ -47,22 +47,23 @@
 //! Refer to the [`client::sys`] crate for documentation on crate features. This crate re-exports
 //! all the features from [`client`].
 
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
-use tracing_core::{
-    field::{Field, Visit},
-    span::{Attributes, Id, Record},
-    Event, Subscriber,
-};
-use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
-use tracing_subscriber::{
-    fmt::FormattedFields,
-    layer::{Context, Layer},
-    registry,
-};
-
+use buffers::BufferPool;
 use client::{Client, Span};
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use tracing_core::span::{Attributes, Id, Record};
+use tracing_core::{Event, Subscriber};
+use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
+use tracing_subscriber::fmt::FormattedFields;
+use tracing_subscriber::layer::{Context, Layer};
+use tracing_subscriber::registry;
 
 pub use client;
+mod buffers;
+pub mod fmt;
+
+const DEFAULT_BUFFER_CACHE_SIZE: usize = 32;
+const DEFAULT_BUFFER_SIZE: usize = 64;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -72,21 +73,28 @@ thread_local! {
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer<F = DefaultFields> {
+pub struct TracyLayer<F = fmt::TracyFields<DefaultFields>> {
     fmt: F,
-    stack_depth: u16,
     client: Client,
+    buffer_pool: BufferPool<F>,
+
+    stack_depth: u16,
+    key_values: bool,
 }
 
-impl TracyLayer<DefaultFields> {
+impl TracyLayer<fmt::TracyFields<DefaultFields>> {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
     pub fn new() -> Self {
+        let client = Client::start();
         Self {
-            fmt: DefaultFields::default(),
+            fmt: fmt::TracyFields::new(client.clone(), DefaultFields::default()),
+            client,
+            buffer_pool: BufferPool::new(DEFAULT_BUFFER_CACHE_SIZE, DEFAULT_BUFFER_SIZE),
+
             stack_depth: 0,
-            client: Client::start(),
+            key_values: true,
         }
     }
 }
@@ -102,13 +110,37 @@ impl<F> TracyLayer<F> {
         self
     }
 
-    /// Use a custom field formatting implementation.
+    /// Use a custom field formatting implementation for span names and events.
     pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
+        let num_buffers = self.buffer_pool.pool.capacity();
+        let buffer_size = self.buffer_pool.buffer_size;
         TracyLayer {
             fmt,
-            stack_depth: self.stack_depth,
             client: self.client,
+            buffer_pool: self.buffer_pool.remake(num_buffers, buffer_size),
+            key_values: self.key_values,
+            stack_depth: self.stack_depth,
         }
+    }
+
+    /// Preallocate a formatting buffer cache with the specified number of elements.
+    ///
+    /// By default the buffer cache holds 32 items.
+    pub fn with_buffer_cache(mut self, num_buffers: usize, buffer_size: usize) -> Self {
+        self.buffer_pool = self.buffer_pool.remake(num_buffers, buffer_size);
+        self
+    }
+
+    /// Whether to emit key-values as span names and messages to Tracy.
+    ///
+    /// Formatting key-values will prominently display them in the trace output for each span and
+    /// event. Disabling this can significantly reduce the overhead of instrumentation. When
+    /// doing so the spans in traces will fall back to displaying only the span name (often the
+    /// same as the instrumented function’s name), while events will only display the contents of
+    /// the message key. The rest of the information is discarded.
+    pub fn with_keys_and_values(mut self, enable: bool) -> Self {
+        self.key_values = enable;
+        self
     }
 
     fn truncate_to_length<'d>(
@@ -146,26 +178,27 @@ where
     F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            let mut extensions = span.extensions_mut();
-            if extensions.get_mut::<FormattedFields<F>>().is_none() {
-                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+        if self.key_values {
+            if let Some(span) = ctx.span(id) {
+                let mut fields = self.buffer_pool.get();
                 if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
-                    extensions.insert(fields);
+                    span.extensions_mut().insert(fields);
                 }
             }
         }
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            let mut extensions = span.extensions_mut();
-            if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
-                let _ = self.fmt.add_fields(fields, values);
-            } else {
-                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
-                if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
-                    extensions.insert(fields);
+        if self.key_values {
+            if let Some(span) = ctx.span(id) {
+                let mut extensions = span.extensions_mut();
+                if let Some(fields) = extensions.get_mut::<buffers::Buffer<F>>() {
+                    let _ = self.fmt.add_fields(fields, values);
+                } else {
+                    let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+                    if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
+                        extensions.insert(fields);
+                    }
                 }
             }
         }
@@ -176,32 +209,39 @@ where
             let metadata = span_data.metadata();
             let file = metadata.file().unwrap_or("<not available>");
             let line = metadata.line().unwrap_or(0);
-            let name: Cow<str> =
-                if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
+            let extensions;
+            let key_values: Option<&str> = if self.key_values {
+                extensions = span_data.extensions();
+                if let Some(fields) = extensions.get::<buffers::Buffer<F>>() {
                     if fields.fields.as_str().is_empty() {
-                        metadata.name().into()
+                        None
                     } else {
-                        format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
+                        Some(fields.fields.as_str())
                     }
                 } else {
-                    metadata.name().into()
-                };
+                    None
+                }
+            } else {
+                None
+            };
             TRACY_SPAN_STACK.with(|s| {
-                s.borrow_mut().push_back((
-                    self.client.clone().span_alloc(
-                        self.truncate_to_length(
-                            &name,
-                            file,
-                            "",
-                            "span information is too long and was truncated",
-                        ),
+                let span = self.client.clone().span_alloc(
+                    None,
+                    metadata.name(),
+                    file,
+                    line,
+                    self.stack_depth,
+                );
+                if let Some(key_values) = key_values {
+                    // TODO: maybe emit each KV as a separate text?
+                    span.emit_text(self.truncate_to_length(
+                        key_values,
                         "",
-                        file,
-                        line,
-                        self.stack_depth,
-                    ),
-                    id.into_u64(),
-                ));
+                        "",
+                        "key-values were truncated",
+                    ));
+                }
+                s.borrow_mut().push_back((span, id.into_u64()));
             });
         }
     }
@@ -229,51 +269,37 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
-        let mut visitor = TracyEventFieldVisitor {
-            dest: String::with_capacity(64),
-            first: true,
-            frame_mark: false,
-        };
-        event.record(&mut visitor);
-        if !visitor.first {
-            self.client.message(
-                self.truncate_to_length(
-                    &visitor.dest,
-                    "",
-                    "",
-                    "event message is too long and was truncated",
-                ),
-                self.stack_depth,
-            );
-        }
-        if visitor.frame_mark {
-            self.client.frame_mark();
-        }
-    }
-}
-
-struct TracyEventFieldVisitor {
-    dest: String,
-    frame_mark: bool,
-    first: bool,
-}
-
-impl Visit for TracyEventFieldVisitor {
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        // FIXME: this is a very crude formatter, but we don’t have
-        // an easy way to do anything better...
-        if self.first {
-            let _ = write!(&mut self.dest, "{} = {:?}", field.name(), value);
-            self.first = false;
+        if self.key_values {
+            buffers::with_event_buffer::<F, _>(|ff| {
+                self.fmt.format_fields(ff.as_writer(), event).unwrap();
+                self.client.message(
+                    self.truncate_to_length(
+                        ff.as_str(),
+                        "",
+                        "",
+                        "event message is too long and was truncated",
+                    ),
+                    self.stack_depth,
+                );
+            });
         } else {
-            let _ = write!(&mut self.dest, ", {} = {:?}", field.name(), value);
-        }
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        match (value, field.name()) {
-            (true, "tracy.frame_mark") => self.frame_mark = true,
-            _ => self.record_debug(field, &value),
+            let message_collector =
+                fmt::TracyFieldsVisitor::new(self.client.clone(), fmt::CollectMessageVisitor(None));
+            let message = tracing_subscriber::field::VisitOutput::visit(message_collector, &event);
+            if let Some(msg) = message {
+                self.client.message(
+                    self.truncate_to_length(
+                        msg,
+                        "",
+                        "",
+                        "event message is too long and was truncated",
+                    ),
+                    self.stack_depth,
+                );
+            } else {
+                self.client
+                    .color_message("event without message", 0xFF000000, self.stack_depth);
+            }
         }
     }
 }
@@ -282,9 +308,5 @@ impl Visit for TracyEventFieldVisitor {
 mod tests;
 #[cfg(test)]
 fn main() {
-    if std::env::args_os().any(|p| p == std::ffi::OsStr::new("--bench")) {
-        tests::bench();
-    } else {
-        tests::test();
-    }
+    tests::main();
 }

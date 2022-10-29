@@ -20,6 +20,7 @@ bench = true
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
 client = { package = "tracy-client", path = "../tracy-client", version = "0.14.0", default-features = false }
+crossbeam-queue = "0.3.5"
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
