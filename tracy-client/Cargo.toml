@@ -4,7 +4,7 @@ version = "0.15.0" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
-readme = "../README.mkd"
+readme = "README.mkd"
 repository = "https://github.com/nagisa/rust_tracy_client"
 homepage = "https://github.com/nagisa/rust_tracy_client"
 documentation = "https://docs.rs/tracy-client"
@@ -43,7 +43,7 @@ default-features = false
 version = "0.5"
 
 [features]
-# Refer to `tracy-client-sys` for documentation on features.
+# Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
             "broadcast" ]
 broadcast = ["sys/broadcast"]

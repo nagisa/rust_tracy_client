@@ -4,7 +4,7 @@ version = "0.10.1"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
-readme = "../README.mkd"
+readme = "README.mkd"
 repository = "https://github.com/nagisa/rust_tracy_client"
 homepage = "https://github.com/nagisa/rust_tracy_client"
 documentation = "https://docs.rs/tracing-tracy"
@@ -30,7 +30,7 @@ futures = "0.3"
 criterion = "0.3"
 
 [features]
-# Refer to `tracy-client-sys` for documentation on features.
+# Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
             "broadcast" ]
 broadcast = ["client/broadcast"]

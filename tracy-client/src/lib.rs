@@ -18,8 +18,9 @@
 //!
 //! # Features
 //!
-//! Refer to the [`sys`] crate for documentation on crate features. This crate re-exports all the
-//! features from [`sys`].
+//! The following crate features are provided to customize the functionality of the Tracy client:
+//!
+#![doc = include_str!("../FEATURES.mkd")]
 
 pub use crate::frame::{frame_mark, Frame, FrameName};
 pub use crate::plot::PlotName;
