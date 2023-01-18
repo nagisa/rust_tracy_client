@@ -3,6 +3,8 @@
 # NOTE: this script is only intended to be run on CI.
 set -xe
 
+export PATH="$HOME/.cargo/bin/":"$PATH"
+
 if [ $# -eq 0 ]; then
   LAST_RELEASE=($(curl -s "https://api.github.com/repos/wolfpld/tracy/releases/latest" \
                     | jq -r '"\(.tag_name)\n\(.tarball_url)"'))
@@ -27,8 +29,8 @@ cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
 
 bindgen "tracy-client-sys/tracy/tracy/TracyC.h" \
   -o 'tracy-client-sys/src/generated.rs' \
-  --whitelist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
-  --whitelist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
+  --allowlist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
+  --allowlist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --size_t-is-usize \
   --disable-header-comment \
   -- \
