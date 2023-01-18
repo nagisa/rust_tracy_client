@@ -16,7 +16,6 @@ fi
 TAG="${LAST_RELEASE[0]}"
 TARBALL="${LAST_RELEASE[1]}"
 DESTINATION=/tmp/tracy-$TAG # could use mktemp, but unnecessary complexity.
-DEFINES=("-DTRACY_ENABLE" "-DTRACY_MANUAL_LIFETIME" "-DTRACY_FIBERS")
 
 echo "::set-output name=tracy-tag::$TAG"
 mkdir -p "$DESTINATION"
@@ -27,14 +26,31 @@ rm -rf "tracy-client-sys/tracy/"
 cp -r "$BASEDIR/public" "tracy-client-sys/tracy"
 cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
 
-bindgen "tracy-client-sys/tracy/tracy/TracyC.h" \
-  -o 'tracy-client-sys/src/generated.rs' \
+COMMON_BINDGEN_PARAMS=(
+    "tracy-client-sys/tracy/tracy/TracyC.h"
+    "--size_t-is-usize"
+    "--disable-header-comment"
+    "--"
+    "-DTRACY_ENABLE"
+)
+
+bindgen -o "tracy-client-sys/src/generated.rs" \
   --allowlist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --allowlist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
-  --size_t-is-usize \
-  --disable-header-comment \
-  -- \
-  ${DEFINES[@]}
+  ${COMMON_BINDGEN_PARAMS[@]}
+
+bindgen -o "tracy-client-sys/src/generated_manual_lifetime.rs" \
+  --allowlist-function='___tracy_startup_profiler' \
+  --allowlist-function='___tracy_shutdown_profiler' \
+  ${COMMON_BINDGEN_PARAMS[@]} \
+  -DTRACY_MANUAL_LIFETIME
+
+bindgen -o "tracy-client-sys/src/generated_fibers.rs" \
+  --allowlist-function='___tracy_fiber_enter' \
+  --allowlist-function='___tracy_fiber_leave' \
+  ${COMMON_BINDGEN_PARAMS[@]} \
+  -DTRACY_FIBERS
+
 # The space after type avoids hitting members called "type".
 sed -i 's/pub type /type /g' 'tracy-client-sys/src/generated.rs'
 

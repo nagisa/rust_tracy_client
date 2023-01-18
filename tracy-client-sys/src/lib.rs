@@ -21,6 +21,11 @@
 //!
 //! The following crate features are provided to customize the functionality of the Tracy client:
 //!
+//! * `manual-lifetime` – disables Tracy’s life-before-main initialization, requiring manual
+//!   initialization. Corresponds to the `TRACY_MANUAL_LIFETIME` define.
+//! * `delayed-init` – profiler data is gathered into one structure and initialized on the first
+//!   request rather than statically at the DLL load at the expense of atomic load on each request
+//!   to the profiler data. Corresponds to the `TRACY_DELAYED_INIT` define.
 #![doc = include_str!("../FEATURES.mkd")]
 #![allow(non_snake_case, non_camel_case_types, unused_variables, deref_nullptr)]
 
@@ -28,3 +33,14 @@
 mod generated;
 #[cfg(feature = "enable")]
 pub use generated::*;
+
+
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
+mod generated_manual_lifetime;
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
+pub use generated_manual_lifetime::*;
+
+#[cfg(all(feature = "enable", feature = "fibers"))]
+mod generated_fibers;
+#[cfg(all(feature = "enable", feature = "fibers"))]
+pub use generated_fibers::{___tracy_fiber_enter, ___tracy_fiber_leave};
