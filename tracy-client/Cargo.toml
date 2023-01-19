@@ -58,3 +58,6 @@ only-ipv4 = ["sys/only-ipv4"]
 only-localhost = ["sys/only-localhost"]
 sampling = ["sys/sampling"]
 system-tracing = ["sys/system-tracing"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "tracy_client_docs"]

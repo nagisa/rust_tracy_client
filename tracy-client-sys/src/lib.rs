@@ -28,6 +28,7 @@
 //!   to the profiler data. Corresponds to the `TRACY_DELAYED_INIT` define.
 #![doc = include_str!("../FEATURES.mkd")]
 #![allow(non_snake_case, non_camel_case_types, unused_variables, deref_nullptr)]
+#![cfg_attr(tracy_client_sys_docs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "enable")]
 mod generated;

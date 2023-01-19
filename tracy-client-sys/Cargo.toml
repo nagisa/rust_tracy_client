@@ -41,3 +41,6 @@ timer-fallback = []
 ondemand = []
 manual-lifetime = []
 delayed-init = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "tracy_client_sys_docs"]
