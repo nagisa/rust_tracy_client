@@ -71,7 +71,7 @@ NEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
 NEXTNEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
   | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p' \
   | awk '{print $0+2}').0"
-NEXT_CLIENT_VERSION="0.14.$(echo "$CURRENT_CLIENT_VERSION" \
+NEXT_CLIENT_VERSION="0.l5.$(echo "$CURRENT_CLIENT_VERSION" \
   | sed -nr 's,[0-9]+\.[0-9]+\.([0-9]+),\1,p' \
   | awk '{print $0+1}')"
 

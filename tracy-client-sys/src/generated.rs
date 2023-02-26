@@ -760,11 +760,11 @@ extern "C" {
     pub fn ___tracy_emit_plot(name: *const ::std::os::raw::c_char, val: f64);
 }
 extern "C" {
+    pub fn ___tracy_emit_plot_float(name: *const ::std::os::raw::c_char, val: f32);
+}
+extern "C" {
+    pub fn ___tracy_emit_plot_int(name: *const ::std::os::raw::c_char, val: i64);
+}
+extern "C" {
     pub fn ___tracy_emit_message_appinfo(txt: *const ::std::os::raw::c_char, size: usize);
-}
-extern "C" {
-    pub fn ___tracy_fiber_enter(fiber: *const ::std::os::raw::c_char);
-}
-extern "C" {
-    pub fn ___tracy_fiber_leave();
 }
