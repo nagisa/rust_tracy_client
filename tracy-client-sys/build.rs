@@ -60,12 +60,23 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
 }
 
 fn build_tracy_client() {
+    let stdcpp: &str = &std::env::var("TRACY_CLIENT_CPP_EDITION").unwrap_or("c++11".into());
+    let i = stdcpp.len() - 2;
+    match &stdcpp[i..] {
+        "98" | "03" => panic!("Invalid C++ version. C++11 and above only"),
+        "11" | "14" | "17" | "20" | "2b" => (),
+        _ => panic!("Invalid C++ version"),
+    }
+    if !stdcpp.starts_with("c++") && !stdcpp.starts_with("gnu++") {
+        eprintln!("Invalid C++ edition")
+    }
+
     if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
         set_feature_defines(cc::Build::new())
             .file("tracy/TracyClient.cpp")
             .warnings(false)
             .cpp(true)
-            .flag_if_supported("-std=c++11")
+            .flag_if_supported(format!("-std={stdcpp}").as_str())
             .compile("libtracy-client.a");
         link_dependencies();
     }
