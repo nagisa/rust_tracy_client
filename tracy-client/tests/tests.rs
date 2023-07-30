@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use tracy_client::*;
 
 #[global_allocator]
@@ -101,6 +103,30 @@ fn nameless_span() {
     set_thread_name!("test thread");
 }
 
+fn gpu() {
+    let client = Client::start();
+
+    let gpu_context = client
+        .new_gpu_context(Some("MyContext"), GpuContextType::Vulkan, 1_000, 1.0)
+        .unwrap();
+
+    // cmd_buf.write_timestamp(...); to start a span
+    let mut span1 = gpu_context.span_alloc("MyGpuSpan1", "Blah::Blah1", "myfile.rs", 12);
+
+    // cmd_buf.write_timestamp(...); to end a span
+    span1.end_zone().unwrap();
+
+    // cmd_buf.write_timestamp(...); to start a second span
+    let mut span2 = gpu_context.span_alloc("MyGpuSpan2", "Blah::Blah2", "myfile.rs", 14);
+
+    // cmd_buf.write_timestamp(...); to end a second span
+    span2.end_zone().unwrap();
+
+    // Some time later, when the timestamps are back
+    span1.upload_timestamp(100_000, 110_000);
+    span2.upload_timestamp(120_000, 130_000);
+}
+
 fn main() {
     #[cfg(not(loom))]
     {
@@ -120,5 +146,7 @@ fn main() {
         });
         thread.join().unwrap();
         set_thread_name();
+        gpu();
+        std::thread::sleep(Duration::from_secs(5))
     }
 }

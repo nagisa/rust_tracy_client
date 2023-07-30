@@ -7,7 +7,7 @@ pub struct Frame(Client, FrameName);
 
 /// A name for secondary and non-continuous frames.
 ///
-/// Create with the [`frame_name!`] macro.
+/// Create with the [`frame_name!`](crate::frame_name) macro.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameName(pub(crate) &'static str);
 

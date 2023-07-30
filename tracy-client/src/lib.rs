@@ -43,8 +43,8 @@ pub mod internal {
     pub use crate::{span::SpanLocation, sys};
     pub use once_cell::sync::Lazy;
     pub use std::any::type_name;
-    pub use std::ptr::null;
     use std::ffi::CString;
+    pub use std::ptr::null;
 
     #[inline(always)]
     pub fn make_span_location(
