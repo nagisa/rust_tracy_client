@@ -169,8 +169,8 @@ impl GpuSpan {
                 })
             };
             self.ended = true;
-            Some(())
         }
+        Some(())
     }
 
     ///
