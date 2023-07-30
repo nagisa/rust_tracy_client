@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use std::{
     convert::TryInto,
     sync::{
@@ -41,7 +42,7 @@ pub struct GpuContext {
     span_index: Arc<AtomicU16>,
 }
 #[cfg(feature = "enable")]
-static GPU_CONTEXT_INDEX: Mutex<u8> = Mutex::new(0);
+static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
 
 ///
 pub struct GpuSpan {
