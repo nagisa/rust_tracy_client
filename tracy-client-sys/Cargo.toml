@@ -1,11 +1,11 @@
 [package]
 name = "tracy-client-sys"
-version = "0.17.1" # AUTO-BUMP
+version = "0.21.0" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 build = "build.rs"
 license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
 edition = "2018"
-readme = "../README.mkd"
+readme = "README.mkd"
 repository = "https://github.com/nagisa/rust_tracy_client"
 homepage = "https://github.com/nagisa/rust_tracy_client"
 documentation = "https://docs.rs/tracy-client-sys"
@@ -25,40 +25,22 @@ required-features = ["fibers"]
 cc = { version = "1", default-features = false }
 
 [features]
+# Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
             "broadcast" ]
-# Enable Tracy. Corresponds to the `TRACY_ENABLE` define.
 enable = []
-# Enable support for tracing coroutines, fibers and similar such asynchrony primitives. Corresponds
-# to the `TRACY_FIBERS` define.
 fibers = []
-
-# Enable tracing of the system-level details. This is only active if permissions are sufficient
-# when the application is run. The `TRACY_NO_SYSTEM_TRACING` define is set if this feature is
-# disabled.
 system-tracing = []
-# Enable capture of the context switch data. The `TRACY_NO_CONTEXT_SWITCH` define is set if this
-# feature is disabled.
 context-switch-tracing = []
-# Enable external sampling of the call stacks. The `TRACY_NO_SAMPLING` define is set if this
-# feature is disabled.
 sampling = []
-# Enable transfer of the machine code to the profiler. The `TRACY_NO_CODE_TRANSFER` define is set
-# if this feature is disabled.
 code-transfer = []
-
-# Allow the client to announce its presence to the profilers on the local network. The
-# `TRACY_NO_BROADCAST` define is set if this feature is disabled.
 broadcast = []
-# Listen for profilers on the localhost interface only. Corresponds to the `TRACY_ONLY_LOCALHOST`
-# define. Can also be activated by setting an environment variable of the same name.
 only-localhost = []
-# Listen on IPv4 interfaces only. Corresponds to the `TRACY_ONLY_IPV4` define. Can also be
-# activated by setting an environment variable of the same name.
 only-ipv4 = []
-
-# Enable support for running with low resolution timers.
 timer-fallback = []
-# Enable on-demand mode. Traces are only collected when a server connects to the client.
-# Also makes it possible to repeatedly re-connect to a client.
 ondemand = []
+manual-lifetime = []
+delayed-init = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "tracy_client_sys_docs"]

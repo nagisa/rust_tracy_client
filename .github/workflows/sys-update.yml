@@ -9,23 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v2
-      - name: Install Rust ${{ matrix.rust_toolchain }}
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: stable
-            profile: minimal
-            default: true
-      - name: Install bindgen
-        run: cargo install bindgen
-      - name: Install dependencies
-        run: sudo apt install -y jq curl
-      - name: Run the generation script
+      - uses: actions/checkout@v2
+      - run: rustup install stable --profile=minimal
+      - run: rustup default stable
+      - run: cargo install bindgen-cli
+      - run: sudo apt install -y jq curl
+      - run: bash make_sys.sh
         id: make_sys
-        run: bash make_sys.sh
-      - name: Diff the generated code
-        run: git diff
+      - run: git diff
       - if: ${{ steps.make_sys.outputs.tracy-changed }}
         uses: tibdex/github-app-token@36464acb844fc53b9b8b2401da68844f6b05ebb0
         id: generate-token

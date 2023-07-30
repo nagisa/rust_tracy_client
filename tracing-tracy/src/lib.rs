@@ -44,8 +44,10 @@
 //!
 //! # Features
 //!
-//! Refer to the [`client::sys`] crate for documentation on crate features. This crate re-exports
-//! all the features from [`client`].
+//! The following crate features are provided to customize the functionality of the Tracy client:
+//!
+#![doc = include_str!("../FEATURES.mkd")]
+#![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
@@ -189,12 +191,12 @@ where
             TRACY_SPAN_STACK.with(|s| {
                 s.borrow_mut().push_back((
                     self.client.clone().span_alloc(
-                        self.truncate_to_length(
+                        Some(self.truncate_to_length(
                             &name,
                             file,
                             "",
                             "span information is too long and was truncated",
-                        ),
+                        )),
                         "",
                         file,
                         line,

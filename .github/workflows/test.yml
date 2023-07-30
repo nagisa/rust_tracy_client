@@ -1,0 +1,27 @@
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  native-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust_toolchain: [nightly, stable, 1.60.0]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        flags: ["", "--release", "--no-default-features", "--all-features"]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v2
+      - run: rustup install ${{ matrix.rust_toolchain }} --profile=minimal
+      - run: rustup default ${{ matrix.rust_toolchain }}
+      - run: cargo test ${{ matrix.flags }} -- --nocapture
+        env:
+          TRACY_NO_INVARIANT_CHECK: 1
