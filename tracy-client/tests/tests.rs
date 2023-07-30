@@ -125,6 +125,8 @@ fn gpu() {
     // Some time later, when the timestamps are back
     span1.upload_timestamp(100_000, 110_000);
     span2.upload_timestamp(120_000, 130_000);
+
+    std::thread::sleep(Duration::from_secs(5));
 }
 
 fn main() {

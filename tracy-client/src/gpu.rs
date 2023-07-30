@@ -40,11 +40,13 @@ pub struct GpuContext {
     context: u8,
     #[cfg(feature = "enable")]
     span_index: Arc<AtomicU16>,
+    _private: (),
 }
 #[cfg(feature = "enable")]
 static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
 
 ///
+#[must_use]
 pub struct GpuSpan {
     #[cfg(feature = "enable")]
     _client: Client,
@@ -55,6 +57,7 @@ pub struct GpuSpan {
     query_id: u16,
     #[cfg(feature = "enable")]
     ended: bool,
+    _private: (),
 }
 
 impl Client {
@@ -64,6 +67,8 @@ impl Client {
     /// - 'ty' is the type (backend) of the context.
     /// - 'gpu_timestamp' is the gpu side timestamp the corresponds (as close as possible) to this call.
     /// - 'period' is the period of the gpu clock in nanoseconds (setting 1.0 means the clock is 1GHz, 1000.0 means 1MHz, etc).
+    ///
+    /// Returns None if more than 255 contexts were made during the lifetime of the application.
     pub fn new_gpu_context(
         self,
         name: Option<&str>,
@@ -74,6 +79,8 @@ impl Client {
         #[cfg(feature = "enable")]
         {
             // We use a mutex to lock the context index to prevent races when using fetch_add.
+            //
+            // This prevents multiple contexts getting the same context id.
             let mut context_index_guard = GPU_CONTEXT_INDEX.lock().unwrap();
             if *context_index_guard == 255 {
                 return None;
@@ -82,8 +89,10 @@ impl Client {
             *context_index_guard += 1;
             drop(context_index_guard);
 
+            // SAFETY:
+            // - We know we aren't re-using the context id because of the above logic.
             unsafe {
-                sys::___tracy_emit_gpu_new_context(sys::___tracy_gpu_new_context_data {
+                sys::___tracy_emit_gpu_new_context_serial(sys::___tracy_gpu_new_context_data {
                     gpuTime: gpu_timestamp,
                     period,
                     context,
@@ -93,6 +102,9 @@ impl Client {
             };
 
             if let Some(name) = name {
+                // SAFTEY:
+                // - We've allocated a context.
+                // - The names will copied into the command stream, so the pointers do not need to last.
                 unsafe {
                     sys::___tracy_emit_gpu_context_name_serial(
                         sys::___tracy_gpu_context_name_data {
@@ -108,10 +120,11 @@ impl Client {
                 client: self,
                 context,
                 span_index: Arc::new(AtomicU16::new(0)),
+                _private: (),
             })
         }
         #[cfg(not(feature = "enable"))]
-        Some(GpuContext {})
+        Some(GpuContext { _private: () })
     }
 }
 
@@ -148,6 +161,7 @@ impl GpuContext {
                 context: self.context,
                 query_id,
                 ended: false,
+                _private: (),
             }
         }
         #[cfg(not(feature = "enable"))]
@@ -157,11 +171,11 @@ impl GpuContext {
 
 impl GpuSpan {
     ///
-    pub fn end_zone(&mut self) -> Option<()> {
+    pub fn end_zone(&mut self) {
         #[cfg(feature = "enable")]
         {
             if self.ended {
-                return None;
+                return;
             }
             unsafe {
                 sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
@@ -171,16 +185,16 @@ impl GpuSpan {
             };
             self.ended = true;
         }
-        Some(())
     }
 
     ///
     pub fn upload_timestamp(self, start_timestamp: i64, end_timestamp: i64) {
         #[cfg(feature = "enable")]
         {
-            if !self.ended {
-                return;
-            }
+            assert!(
+                self.ended,
+                "You must call end_zone before uploading timestamps."
+            );
             unsafe {
                 sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                     gpuTime: start_timestamp,
