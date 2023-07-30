@@ -23,14 +23,14 @@ fn ops_alloc(c: &mut Criterion) {
         bencher.iter(|| {
             client
                 .clone()
-                .span_alloc("hello", "function", "file", 42, 0);
+                .span_alloc(Some("hello"), "function", "file", 42, 0);
         });
     });
     c.bench_function("span_alloc_callstack/100", |bencher| {
         bencher.iter(|| {
             client
                 .clone()
-                .span_alloc("hello", "function", "file", 42, 100);
+                .span_alloc(Some("hello"), "function", "file", 42, 100);
         });
     });
 }
