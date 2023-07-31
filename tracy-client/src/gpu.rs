@@ -287,7 +287,7 @@ impl GpuContext {
             })
         }
         #[cfg(not(feature = "enable"))]
-        Ok(GpuSpan {})
+        Ok(GpuSpan { _private: () })
     }
 }
 

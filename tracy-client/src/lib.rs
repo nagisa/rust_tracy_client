@@ -1,5 +1,5 @@
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
-#![cfg_attr(not(feature = "enable"), allow(unused_variables, unused_imports))]
+#![cfg_attr(not(feature = "enable"), allow(unused_variables, unused_imports, unused_mut, dead_code))]
 //! This crate is a set of safe bindings to the client library of the [Tracy profiler].
 //!
 //! If you have already instrumented your application with `tracing`, consider the `tracing-tracy`
