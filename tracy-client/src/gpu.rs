@@ -47,16 +47,17 @@ pub enum GpuContextType {
 /// let starting_timestamp: i64 = /* whatever you get from this timestamp */ 0;
 ///
 /// // Create the gpu context
-/// let gpu_context = client.gpu_context(
+/// let gpu_context = client.new_gpu_context(
+///     Some("MyContext"),
 ///     tracy_client::GpuContextType::Vulkan,
 ///     starting_timestamp,
 ///     period
-/// );
+/// ).unwrap();
 ///
 /// // Now you have some work that you want to time on the gpu.
 ///
 /// // GPU API: Record writing a timestamp before the work.
-/// let mut span = gpu_context.span_alloc("MyGpuSpan1", "My::Work", "myfile.rs", 12);
+/// let mut span = gpu_context.span_alloc("MyGpuSpan1", "My::Work", "myfile.rs", 12).unwrap();
 ///
 /// // GPU API: Record work.
 ///
