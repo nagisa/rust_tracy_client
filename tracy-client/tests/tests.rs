@@ -111,22 +111,25 @@ fn gpu() {
         .unwrap();
 
     // cmd_buf.write_timestamp(...); to start a span
-    let mut span1 = gpu_context.span_alloc("MyGpuSpan1", "Blah::Blah1", "myfile.rs", 12);
+    let mut span1 = gpu_context
+        .span_alloc("MyGpuSpan1", "Blah::Blah1", "myfile.rs", 12)
+        .unwrap();
 
     // cmd_buf.write_timestamp(...); to end a span
-    span1.end_zone().unwrap();
+    span1.end_zone();
 
     // cmd_buf.write_timestamp(...); to start a second span
-    let mut span2 = gpu_context.span_alloc("MyGpuSpan2", "Blah::Blah2", "myfile.rs", 14);
+    let mut span2 = gpu_context
+        .span_alloc("MyGpuSpan2", "Blah::Blah2", "myfile.rs", 14)
+        .unwrap();
 
     // cmd_buf.write_timestamp(...); to end a second span
-    span2.end_zone().unwrap();
+    span2.end_zone();
 
     // Some time later, when the timestamps are back
     span1.upload_timestamp(100_000, 110_000);
     span2.upload_timestamp(120_000, 130_000);
 
-    std::thread::sleep(Duration::from_secs(5));
 }
 
 fn main() {
@@ -149,6 +152,7 @@ fn main() {
         thread.join().unwrap();
         set_thread_name();
         gpu();
-        std::thread::sleep(Duration::from_secs(5))
+        // Sleep to give time to the client to send the data to the profiler.
+        std::thread::sleep(Duration::from_secs(1))
     }
 }

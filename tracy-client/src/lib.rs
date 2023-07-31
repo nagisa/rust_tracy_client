@@ -24,7 +24,9 @@
 #![cfg_attr(tracy_client_docs, feature(doc_auto_cfg))]
 
 pub use crate::frame::{frame_mark, Frame, FrameName};
-pub use crate::gpu::{GpuContext, GpuContextType, GpuSpan};
+pub use crate::gpu::{
+    GpuContext, GpuContextCreationError, GpuContextType, GpuSpan, GpuSpanCreationError,
+};
 pub use crate::plot::PlotName;
 pub use crate::span::{Span, SpanLocation};
 use std::alloc;
