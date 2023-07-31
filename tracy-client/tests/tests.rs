@@ -111,9 +111,8 @@ fn gpu() {
         .unwrap();
 
     // cmd_buf.write_timestamp(...); to start a span
-    let mut span1 = gpu_context
-        .span_alloc("MyGpuSpan1", "Blah::Blah1", "myfile.rs", 12)
-        .unwrap();
+    let span_loc = span_location!("MyGpuSpan1");
+    let mut span1 = gpu_context.span(span_loc).unwrap();
 
     // cmd_buf.write_timestamp(...); to end a span
     span1.end_zone();
@@ -152,6 +151,6 @@ fn main() {
         set_thread_name();
         gpu();
         // Sleep to give time to the client to send the data to the profiler.
-        std::thread::sleep(Duration::from_secs(1))
+        std::thread::sleep(Duration::from_secs(5))
     }
 }

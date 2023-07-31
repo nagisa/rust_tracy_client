@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::Client;
+use crate::{Client, SpanLocation};
 
 #[repr(u8)]
 /// The API label associated with the given gpu context. The list here only includes
@@ -237,6 +237,44 @@ impl GpuContext {
         let start = freelist.pop().unwrap();
         let end = freelist.pop().unwrap();
         Ok((start, end))
+    }
+
+    /// Creates a new gpu span with the given source location.
+    ///
+    /// This should be called right next to where you record the corresponding gpu timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    ///
+    /// # Errors
+    ///
+    /// - If there are more than 32767 spans waiting for gpu data at once.
+    pub fn span(
+        &self,
+        span_location: &'static SpanLocation,
+    ) -> Result<GpuSpan, GpuSpanCreationError> {
+        #[cfg(feature = "enable")]
+        {
+            let (start_query_id, end_query_id) = self.alloc_span_ids()?;
+
+            // SAFETY: We know that the span location is valid forever as it is 'static. `usize` will
+            // always be smaller than u64, so no data will be lost.
+            unsafe {
+                sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
+                    srcloc: (&span_location.data) as *const _ as usize as u64,
+                    queryId: start_query_id,
+                    context: self.value,
+                })
+            };
+
+            Ok(GpuSpan {
+                context: self.clone(),
+                start_query_id,
+                end_query_id,
+                state: GpuSpanState::Started,
+                _private: (),
+            })
+        }
+        #[cfg(not(feature = "enable"))]
+        Ok(GpuSpan { _private: () })
     }
 
     /// Creates a new gpu span with the given name, function, file, and line.
