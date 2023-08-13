@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client-sys"
-version = "0.21.0" # AUTO-BUMP
+version = "0.21.1" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 build = "build.rs"
 license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
@@ -22,7 +22,7 @@ required-features = ["fibers"]
 [dependencies]
 
 [build-dependencies]
-cc = { version = "1", default-features = false }
+cc = { version = "1.0.82", default-features = false }
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.

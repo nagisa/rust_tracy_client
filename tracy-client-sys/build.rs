@@ -61,12 +61,19 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
 
 fn build_tracy_client() {
     if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
-        set_feature_defines(cc::Build::new())
+        let mut builder = set_feature_defines(cc::Build::new());
+        let _ = builder
             .file("tracy/TracyClient.cpp")
             .warnings(false)
-            .cpp(true)
-            .flag_if_supported("-std=c++11")
-            .compile("libtracy-client.a");
+            .cpp(true);
+        if let Ok(tool) = builder.try_get_compiler() {
+            if tool.is_like_gnu() || tool.is_like_clang() {
+                // https://github.com/rust-lang/cc-rs/issues/855
+                builder.flag("-std=c++11");
+            }
+        }
+        let _ = builder.try_flags_from_environment("TRACY_CLIENT_SYS_CXXFLAGS");
+        builder.compile("libtracy-client.a");
         link_dependencies();
     }
 }
