@@ -56,6 +56,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_BROADCAST").is_none() {
         c.define("TRACY_NO_BROADCAST", None);
     }
+    if std::env::var_os("CARGO_FEATURE_CALLSTACK_INLINES").is_none() {
+        c.define("TRACY_NO_CALLSTACK_INLINES", None);
+    }
     c
 }
 
