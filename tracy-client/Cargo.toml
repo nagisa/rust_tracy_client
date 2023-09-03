@@ -46,7 +46,7 @@ version = "0.5"
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast" ]
+            "broadcast", "callstack-inlines" ]
 broadcast = ["sys/broadcast"]
 code-transfer = ["sys/code-transfer"]
 context-switch-tracing = ["sys/context-switch-tracing"]
@@ -58,6 +58,7 @@ only-ipv4 = ["sys/only-ipv4"]
 only-localhost = ["sys/only-localhost"]
 sampling = ["sys/sampling"]
 system-tracing = ["sys/system-tracing"]
+callstack-inlines = ["sys/callstack-inlines"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]

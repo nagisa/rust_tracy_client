@@ -19,6 +19,9 @@
   to the `TRACY_ON_DEMAND` define.
 * `fibers` – enable support for instrumenting fibers, coroutines and similar such asynchrony
   primitives. Corresponds to the `TRACY_FIBERS` define.
+* `callstack-inlines` - enables resolution of inline frames for call stacks. Disabling it will make the profiler use
+  the basic but much faster frame resolution mode. Corresponds to the `TRACY_NO_CALLSTACK_INLINES` define.
+
 
 Refer to this package's `Cargo.toml` for the list of the features enabled by default. Refer to
 the `Tracy` manual for more information on the implications of each feature.
