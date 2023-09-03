@@ -1,6 +1,6 @@
 [package]
 name = "tracing-tracy"
-version = "0.10.3"
+version = "0.10.4"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license = "MIT/Apache-2.0"
 edition = "2018"
@@ -19,7 +19,7 @@ bench = true
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
-client = { package = "tracy-client", path = "../tracy-client", version = "0.16.0", default-features = false }
+client = { package = "tracy-client", path = "../tracy-client", version = "0.16.2", default-features = false }
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }

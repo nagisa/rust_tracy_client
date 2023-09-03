@@ -83,7 +83,7 @@ sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
 # …and the versions in tracy-client.
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_CLIENT_VERSION\" \2/" \
     tracy-client/Cargo.toml
-sed -i "s/^\(version =\) \".*\" \(# AUTO-UPDATE\)$/\1 \">=0.17.0, <$NEXTNEXT_SYS_VERSION\" \2/" \
+sed -i "s/^\(version =\) \".*\" \(# AUTO-UPDATE\)$/\1 \">=0.21.2, <$NEXTNEXT_SYS_VERSION\" \2/" \
     tracy-client/Cargo.toml
 
 # Make a commit that we'll PR
