@@ -11,6 +11,34 @@ pub struct Frame(Client, FrameName);
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameName(pub(crate) &'static str);
 
+impl FrameName {
+    /// Construct a `FrameName` dynamically, leaking the provided String.
+    ///
+    /// You should call this function once for a given name, and store the returned `FrameName` for
+    /// continued use, to avoid rapid memory use growth. Whenever possible, prefer the
+    /// [`frame_name!`](crate::frame_name) macro, which takes a literal name and doesn't leak
+    /// memory.
+    ///
+    /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
+    /// and [`Client::non_continuous_frame`] methods.
+    pub fn new_leak(name: String) -> Self {
+        #[cfg(feature = "enable")]
+        {
+            // Ensure the name is null-terminated.
+            let mut name = name;
+            name.push('\0');
+            // Drop excess capacity by converting into a boxed str, then leak.
+            let name = Box::leak(name.into_boxed_str());
+            Self(name)
+        }
+        #[cfg(not(feature = "enable"))]
+        {
+            drop(name);
+            Self("\0")
+        }
+    }
+}
+
 /// Instrumentation for global frame indicators.
 impl Client {
     /// Indicate that rendering of a continuous frame has ended.

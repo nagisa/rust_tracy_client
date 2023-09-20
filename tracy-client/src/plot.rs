@@ -6,6 +6,33 @@ use crate::Client;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PlotName(pub(crate) &'static str);
 
+impl PlotName {
+    /// Construct a `PlotName` dynamically, leaking the provided String.
+    ///
+    /// You should call this function once for a given name, and store the returned `PlotName` for
+    /// continued use, to avoid rapid memory use growth. Whenever possible, prefer the
+    /// [`plot_name!`](crate::plot_name) macro, which takes a literal name and doesn't leak memory.
+    ///
+    /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
+    /// and [`Client::non_continuous_frame`] methods.
+    pub fn new_leak(name: String) -> Self {
+        #[cfg(feature = "enable")]
+        {
+            // Ensure the name is null-terminated.
+            let mut name = name;
+            name.push('\0');
+            // Drop excess capacity by converting into a boxed str, then leak.
+            let name = Box::leak(name.into_boxed_str());
+            Self(name)
+        }
+        #[cfg(not(feature = "enable"))]
+        {
+            drop(name);
+            Self("\0")
+        }
+    }
+}
+
 /// Instrumentation for drawing 2D plots.
 impl Client {
     /// Add a point with an y-axis value of `value` to the plot named `plot_name`.
