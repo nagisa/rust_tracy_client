@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: rustup install stable --profile=minimal
       - run: rustup default stable
       - run: cargo install bindgen-cli
@@ -18,14 +18,14 @@ jobs:
         id: make_sys
       - run: git diff
       - if: ${{ steps.make_sys.outputs.tracy-changed }}
-        uses: tibdex/github-app-token@36464acb844fc53b9b8b2401da68844f6b05ebb0
+        uses: actions/create-github-app-token@v1
         id: generate-token
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
       - if: ${{ steps.make_sys.outputs.tracy-changed }}
         name: Create Pull Request
-        uses: peter-evans/create-pull-request@d9d6fd980e1e0904e8e4dce3f0992640091bde37
+        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38
         with:
           title: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
           body: ''
