@@ -26,8 +26,6 @@ cc = { version = "1.0.82", default-features = false }
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.
-default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines" ]
 enable = []
 fibers = []
 system-tracing = []

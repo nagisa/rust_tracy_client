@@ -16,20 +16,12 @@ impl PlotName {
     /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
     /// and [`Client::non_continuous_frame`] methods.
     pub fn new_leak(name: String) -> Self {
-        #[cfg(feature = "enable")]
-        {
-            // Ensure the name is null-terminated.
-            let mut name = name;
-            name.push('\0');
-            // Drop excess capacity by converting into a boxed str, then leak.
-            let name = Box::leak(name.into_boxed_str());
-            Self(name)
-        }
-        #[cfg(not(feature = "enable"))]
-        {
-            drop(name);
-            Self("\0")
-        }
+        // Ensure the name is null-terminated.
+        let mut name = name;
+        name.push('\0');
+        // Drop excess capacity by converting into a boxed str, then leak.
+        let name = Box::leak(name.into_boxed_str());
+        Self(name)
     }
 }
 
@@ -46,7 +38,6 @@ impl Client {
     ///     .plot(tracy_client::plot_name!("temperature"), 37.0);
     /// ```
     pub fn plot(&self, plot_name: PlotName, value: f64) {
-        #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We made sure the `plot` refers to a null-terminated string.
             sys::___tracy_emit_plot(plot_name.0.as_ptr().cast(), value);

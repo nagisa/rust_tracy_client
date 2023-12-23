@@ -26,7 +26,6 @@ use std::sync::atomic::Ordering;
 ///
 /// All that seems like a major pain to implement, and so we’ll punt on disabling entirely until
 /// somebody comes with a good use-case warranting that sort of complexity.
-#[cfg(feature = "enable")]
 #[cfg(not(loom))]
 static CLIENT_STATE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 #[cfg(loom)]
@@ -35,16 +34,11 @@ loom::lazy_static! {
         loom::sync::atomic::AtomicUsize::new(0);
 }
 
-#[cfg(feature = "enable")]
 const STATE_STEP: usize = 1; // Move forward by 1 step in the FSM
-#[cfg(feature = "enable")]
 const STATE_DISABLED: usize = 0;
-#[cfg(feature = "enable")]
 const STATE_ENABLING: usize = STATE_DISABLED + STATE_STEP;
-#[cfg(feature = "enable")]
 const STATE_ENABLED: usize = STATE_ENABLING + STATE_STEP;
 
-#[cfg(feature = "enable")]
 #[inline(always)]
 fn spin_loop() {
     #[cfg(loom)]
@@ -75,53 +69,48 @@ impl Client {
     /// // }
     /// ```
     pub fn start() -> Self {
-        #[cfg(feature = "enable")]
-        {
-            let mut old_state = CLIENT_STATE.load(Ordering::Relaxed);
-            loop {
-                match old_state {
-                    STATE_ENABLED => return Client(()),
-                    STATE_ENABLING => {
-                        while !Self::is_running() {
-                            spin_loop();
-                        }
-                        return Client(());
+        let mut old_state = CLIENT_STATE.load(Ordering::Relaxed);
+        loop {
+            match old_state {
+                STATE_ENABLED => return Client(()),
+                STATE_ENABLING => {
+                    while !Self::is_running() {
+                        spin_loop();
                     }
-                    STATE_DISABLED => {
-                        let result = CLIENT_STATE.compare_exchange_weak(
-                            old_state,
-                            STATE_ENABLING,
-                            Ordering::Relaxed,
-                            Ordering::Relaxed,
-                        );
-                        if let Err(next_old_state) = result {
-                            old_state = next_old_state;
-                            continue;
-                        } else {
-                            unsafe {
-                                // SAFE: This function must not be called if the profiler has
-                                // already been enabled. While in practice calling this function
-                                // multiple times will only serve to trigger an assertion, we
-                                // cannot exactly rely on this, since it is an undocumented
-                                // behaviour and the upstream might very well just decide to invoke
-                                // UB instead. In the case there are multiple copies of
-                                // `tracy-client` this invariant is not actually maintained, but
-                                // otherwise this is sound due to the `ENABLE_STATE` that we
-                                // manage.
-                                //
-                                // TODO: we _could_ define `ENABLE_STATE` in the `-sys` crate...
-                                sys::___tracy_startup_profiler();
-                                CLIENT_STATE.store(STATE_ENABLED, Ordering::Release);
-                                return Client(());
-                            }
-                        }
-                    }
-                    _ => unreachable!(),
+                    return Client(());
                 }
+                STATE_DISABLED => {
+                    let result = CLIENT_STATE.compare_exchange_weak(
+                        old_state,
+                        STATE_ENABLING,
+                        Ordering::Relaxed,
+                        Ordering::Relaxed,
+                    );
+                    if let Err(next_old_state) = result {
+                        old_state = next_old_state;
+                        continue;
+                    } else {
+                        unsafe {
+                            // SAFE: This function must not be called if the profiler has
+                            // already been enabled. While in practice calling this function
+                            // multiple times will only serve to trigger an assertion, we
+                            // cannot exactly rely on this, since it is an undocumented
+                            // behaviour and the upstream might very well just decide to invoke
+                            // UB instead. In the case there are multiple copies of
+                            // `tracy-client` this invariant is not actually maintained, but
+                            // otherwise this is sound due to the `ENABLE_STATE` that we
+                            // manage.
+                            //
+                            // TODO: we _could_ define `ENABLE_STATE` in the `-sys` crate...
+                            sys::___tracy_startup_profiler();
+                            CLIENT_STATE.store(STATE_ENABLED, Ordering::Release);
+                            return Client(());
+                        }
+                    }
+                }
+                _ => unreachable!(),
             }
         }
-        #[cfg(not(feature = "enable"))]
-        Client(())
     }
 
     /// Obtain a client handle, but only if the client is already running.
@@ -137,10 +126,7 @@ impl Client {
     /// Is the client already running?
     #[inline(always)]
     pub fn is_running() -> bool {
-        #[cfg(feature = "enable")]
-        return CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED;
-        #[cfg(not(feature = "enable"))]
-        return true;
+        CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED
     }
 }
 
@@ -154,7 +140,7 @@ impl Clone for Client {
     }
 }
 
-#[cfg(all(test, feature = "enable"))]
+#[cfg(test)]
 mod test {
     use super::*;
 

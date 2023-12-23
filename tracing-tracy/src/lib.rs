@@ -37,8 +37,8 @@
 //! expose the data it collects in the background to that same network. Traces collected by Tracy
 //! may include source and assembly code as well.
 //!
-//! As thus, you may want make sure to only enable the `tracing-tracy` crate conditionally, via the
-//! `enable` feature flag provided by this crate.
+//! As thus, you may want make sure to only enable the `tracing-tracy` crate conditionally, via a
+//! tracing feature in your crate.
 //!
 //! [Tracy]: https://github.com/wolfpld/tracy
 //!

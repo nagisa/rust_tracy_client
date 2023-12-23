@@ -22,20 +22,12 @@ impl FrameName {
     /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
     /// and [`Client::non_continuous_frame`] methods.
     pub fn new_leak(name: String) -> Self {
-        #[cfg(feature = "enable")]
-        {
-            // Ensure the name is null-terminated.
-            let mut name = name;
-            name.push('\0');
-            // Drop excess capacity by converting into a boxed str, then leak.
-            let name = Box::leak(name.into_boxed_str());
-            Self(name)
-        }
-        #[cfg(not(feature = "enable"))]
-        {
-            drop(name);
-            Self("\0")
-        }
+        // Ensure the name is null-terminated.
+        let mut name = name;
+        name.push('\0');
+        // Drop excess capacity by converting into a boxed str, then leak.
+        let name = Box::leak(name.into_boxed_str());
+        Self(name)
     }
 }
 
@@ -58,7 +50,6 @@ impl Client {
     /// // }
     /// ```
     pub fn frame_mark(&self) {
-        #[cfg(feature = "enable")]
         unsafe {
             sys::___tracy_emit_frame_mark(std::ptr::null());
         }
@@ -84,7 +75,6 @@ impl Client {
     /// // }
     /// ```
     pub fn secondary_frame_mark(&self, name: FrameName) {
-        #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We ensured that the name would be null-terminated.
             sys::___tracy_emit_frame_mark(name.0.as_ptr().cast());
@@ -105,7 +95,6 @@ impl Client {
     ///     .non_continuous_frame(frame_name!("a frame"));
     /// ```
     pub fn non_continuous_frame(&self, name: FrameName) -> Frame {
-        #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We ensure that the name would be null-terminated.
             sys::___tracy_emit_frame_mark_start(name.0.as_ptr().cast());
@@ -127,7 +116,6 @@ macro_rules! frame_name {
 
 impl Drop for Frame {
     fn drop(&mut self) {
-        #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We ensure that thena me would be null-terminated. We also still have an owned
             // Client handle.

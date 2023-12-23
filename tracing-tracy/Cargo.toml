@@ -31,12 +31,11 @@ criterion = "0.3"
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.
-default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
+default = [ "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
             "broadcast", "callstack-inlines" ]
 broadcast = ["client/broadcast"]
 code-transfer = ["client/code-transfer"]
 context-switch-tracing = ["client/context-switch-tracing"]
-enable = ["client/enable"]
 fibers = ["client/fibers"]
 timer-fallback = ["client/timer-fallback"]
 ondemand = ["client/ondemand"]

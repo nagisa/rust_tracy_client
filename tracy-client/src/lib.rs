@@ -1,8 +1,5 @@
 #![deny(unsafe_op_in_unsafe_fn, missing_docs)]
-#![cfg_attr(
-    not(feature = "enable"),
-    allow(unused_variables, unused_imports, unused_mut, dead_code)
-)]
+#![allow(unused_variables, unused_imports, unused_mut, dead_code)]
 //! This crate is a set of safe bindings to the client library of the [Tracy profiler].
 //!
 //! If you have already instrumented your application with `tracing`, consider the `tracing-tracy`
@@ -16,8 +13,8 @@
 //! expose the data it collects in the background to that same network. Traces collected by Tracy
 //! may include source and assembly code as well.
 //!
-//! As thus, you may want make sure to only enable the `tracy-client` crate conditionally, via
-//! the `enable` feature flag provided by this crate.
+//! As thus, you may want make sure to only enable the `tracy-client` crate conditionally, via a
+//! tracing feature in your crate.
 //!
 //! # Features
 //!
@@ -57,23 +54,18 @@ pub mod internal {
         span_name: *const u8,
         file: *const u8,
         line: u32,
-    ) -> crate::SpanLocation {
-        #[cfg(feature = "enable")]
-        {
-            let function_name = CString::new(&type_name[..type_name.len() - 3]).unwrap();
-            crate::SpanLocation {
-                data: crate::sys::___tracy_source_location_data {
-                    name: span_name.cast(),
-                    function: function_name.as_ptr(),
-                    file: file.cast(),
-                    line,
-                    color: 0,
-                },
-                _function_name: function_name,
-            }
+    ) -> SpanLocation {
+        let function_name = CString::new(&type_name[..type_name.len() - 3]).unwrap();
+        SpanLocation {
+            data: sys::___tracy_source_location_data {
+                name: span_name.cast(),
+                function: function_name.as_ptr(),
+                file: file.cast(),
+                line,
+                color: 0,
+            },
+            _function_name: function_name,
         }
-        #[cfg(not(feature = "enable"))]
-        crate::SpanLocation { _internal: () }
     }
 
     #[inline(always)]
@@ -89,10 +81,7 @@ pub mod internal {
     #[inline(always)]
     /// Safety: `name` must be null-terminated, and a `Client` must be enabled
     pub unsafe fn set_thread_name(name: *const u8) {
-        #[cfg(feature = "enable")]
-        unsafe {
-            sys::___tracy_set_thread_name(name.cast())
-        }
+        unsafe { sys::___tracy_set_thread_name(name.cast()) }
     }
 }
 
@@ -124,7 +113,6 @@ impl Client {
     /// message. The number provided will limit the number of call frames collected. Note that
     /// enabling callstack collection introduces a non-trivial amount of overhead to this call.
     pub fn message(&self, message: &str, callstack_depth: u16) {
-        #[cfg(feature = "enable")]
         unsafe {
             let stack_depth = adjust_stack_depth(callstack_depth).into();
             sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth)
@@ -140,7 +128,6 @@ impl Client {
     /// The colour shall be provided as RGBA, where the least significant 8 bits represent the alpha
     /// component and most significant 8 bits represent the red component.
     pub fn color_message(&self, message: &str, rgba: u32, callstack_depth: u16) {
-        #[cfg(feature = "enable")]
         unsafe {
             let depth = adjust_stack_depth(callstack_depth).into();
             sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth)
@@ -155,7 +142,6 @@ impl Client {
     ///
     /// This function will panic if the name contains interior null characters.
     pub fn set_thread_name(&self, name: &str) {
-        #[cfg(feature = "enable")]
         unsafe {
             let name = CString::new(name).unwrap();
             // SAFE: `name` is a valid null-terminated string.
@@ -213,7 +199,6 @@ impl<T> ProfiledAllocator<T> {
     }
 
     fn emit_alloc(&self, ptr: *mut u8, size: usize) {
-        #[cfg(feature = "enable")]
         unsafe {
             Client::start();
             if self.1 == 0 {
@@ -225,7 +210,6 @@ impl<T> ProfiledAllocator<T> {
     }
 
     fn emit_free(&self, ptr: *mut u8) {
-        #[cfg(feature = "enable")]
         unsafe {
             if self.1 == 0 {
                 sys::___tracy_emit_memory_free(ptr.cast(), 1);

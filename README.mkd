@@ -16,7 +16,7 @@ expose the data it collects in the background to that same network. Traces colle
 may include source and assembly code as well.
 
 As thus, you may want make sure to only enable the `tracing-tracy`, `tracy-client` and
-`tracy-client-sys` crates conditionally, via the `enable` feature flag provided by the crates.
+`tracy-client-sys` crates conditionally, via a tracing feature in your crate.
 
 ## Version support table
 

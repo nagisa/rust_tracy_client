@@ -72,17 +72,11 @@ pub enum GpuContextType {
 /// ```
 #[derive(Clone)]
 pub struct GpuContext {
-    #[cfg(feature = "enable")]
     _client: Client,
-    #[cfg(feature = "enable")]
     value: u8,
-    #[cfg(feature = "enable")]
     gpu_start_timestamp: i64,
-    #[cfg(feature = "enable")]
     span_freelist: Arc<Mutex<Vec<u16>>>,
-    _private: (),
 }
-#[cfg(feature = "enable")]
 static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
 
 /// Errors that can occur when creating a gpu context.
@@ -124,15 +118,10 @@ enum GpuSpanState {
 ///   will put the span out of the way of other spans.
 #[must_use]
 pub struct GpuSpan {
-    #[cfg(feature = "enable")]
     context: GpuContext,
-    #[cfg(feature = "enable")]
     start_query_id: u16,
-    #[cfg(feature = "enable")]
     end_query_id: u16,
-    #[cfg(feature = "enable")]
     state: GpuSpanState,
-    _private: (),
 }
 
 /// Errors that can occur when creating a gpu span.
@@ -173,61 +162,52 @@ impl Client {
         gpu_timestamp: i64,
         period: f32,
     ) -> Result<GpuContext, GpuContextCreationError> {
-        #[cfg(feature = "enable")]
-        {
-            // We use a mutex to lock the context index to prevent races when using fetch_add.
-            //
-            // This prevents multiple contexts getting the same context id.
-            let mut context_index_guard = GPU_CONTEXT_INDEX.lock().unwrap();
-            if *context_index_guard == 255 {
-                return Err(GpuContextCreationError::TooManyContextsCreated);
-            }
-            let context = *context_index_guard;
-            *context_index_guard += 1;
-            drop(context_index_guard);
-
-            // SAFETY:
-            // - We know we aren't re-using the context id because of the above logic.
-            unsafe {
-                sys::___tracy_emit_gpu_new_context_serial(sys::___tracy_gpu_new_context_data {
-                    gpuTime: gpu_timestamp,
-                    period,
-                    context,
-                    flags: 0,
-                    type_: ty as u8,
-                })
-            };
-
-            if let Some(name) = name {
-                // SAFTEY:
-                // - We've allocated a context.
-                // - The names will copied into the command stream, so the pointers do not need to last.
-                unsafe {
-                    sys::___tracy_emit_gpu_context_name_serial(
-                        sys::___tracy_gpu_context_name_data {
-                            context,
-                            name: name.as_ptr().cast(),
-                            len: name.len().try_into().unwrap_or(u16::MAX),
-                        },
-                    )
-                }
-            }
-
-            Ok(GpuContext {
-                _client: self,
-                value: context,
-                gpu_start_timestamp: gpu_timestamp,
-                span_freelist: Arc::new(Mutex::new((0..=u16::MAX).collect())),
-                _private: (),
-            })
+        // We use a mutex to lock the context index to prevent races when using fetch_add.
+        //
+        // This prevents multiple contexts getting the same context id.
+        let mut context_index_guard = GPU_CONTEXT_INDEX.lock().unwrap();
+        if *context_index_guard == 255 {
+            return Err(GpuContextCreationError::TooManyContextsCreated);
         }
-        #[cfg(not(feature = "enable"))]
-        Ok(GpuContext { _private: () })
+        let context = *context_index_guard;
+        *context_index_guard += 1;
+        drop(context_index_guard);
+
+        // SAFETY:
+        // - We know we aren't re-using the context id because of the above logic.
+        unsafe {
+            sys::___tracy_emit_gpu_new_context_serial(sys::___tracy_gpu_new_context_data {
+                gpuTime: gpu_timestamp,
+                period,
+                context,
+                flags: 0,
+                type_: ty as u8,
+            })
+        };
+
+        if let Some(name) = name {
+            // SAFTEY:
+            // - We've allocated a context.
+            // - The names will copied into the command stream, so the pointers do not need to last.
+            unsafe {
+                sys::___tracy_emit_gpu_context_name_serial(sys::___tracy_gpu_context_name_data {
+                    context,
+                    name: name.as_ptr().cast(),
+                    len: name.len().try_into().unwrap_or(u16::MAX),
+                })
+            }
+        }
+
+        Ok(GpuContext {
+            _client: self,
+            value: context,
+            gpu_start_timestamp: gpu_timestamp,
+            span_freelist: Arc::new(Mutex::new((0..=u16::MAX).collect())),
+        })
     }
 }
 
 impl GpuContext {
-    #[cfg(feature = "enable")]
     fn alloc_span_ids(&self) -> Result<(u16, u16), GpuSpanCreationError> {
         let mut freelist = self.span_freelist.lock().unwrap();
         if freelist.len() < 2 {
@@ -251,30 +231,24 @@ impl GpuContext {
         &self,
         span_location: &'static SpanLocation,
     ) -> Result<GpuSpan, GpuSpanCreationError> {
-        #[cfg(feature = "enable")]
-        {
-            let (start_query_id, end_query_id) = self.alloc_span_ids()?;
+        let (start_query_id, end_query_id) = self.alloc_span_ids()?;
 
-            // SAFETY: We know that the span location is valid forever as it is 'static. `usize` will
-            // always be smaller than u64, so no data will be lost.
-            unsafe {
-                sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
-                    srcloc: (&span_location.data) as *const _ as usize as u64,
-                    queryId: start_query_id,
-                    context: self.value,
-                })
-            };
-
-            Ok(GpuSpan {
-                context: self.clone(),
-                start_query_id,
-                end_query_id,
-                state: GpuSpanState::Started,
-                _private: (),
+        // SAFETY: We know that the span location is valid forever as it is 'static. `usize` will
+        // always be smaller than u64, so no data will be lost.
+        unsafe {
+            sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
+                srcloc: (&span_location.data) as *const _ as usize as u64,
+                queryId: start_query_id,
+                context: self.value,
             })
-        }
-        #[cfg(not(feature = "enable"))]
-        Ok(GpuSpan { _private: () })
+        };
+
+        Ok(GpuSpan {
+            context: self.clone(),
+            start_query_id,
+            end_query_id,
+            state: GpuSpanState::Started,
+        })
     }
 
     /// Creates a new gpu span with the given name, function, file, and line.
@@ -292,40 +266,34 @@ impl GpuContext {
         file: &str,
         line: u32,
     ) -> Result<GpuSpan, GpuSpanCreationError> {
-        #[cfg(feature = "enable")]
-        {
-            let srcloc = unsafe {
-                sys::___tracy_alloc_srcloc_name(
-                    line,
-                    file.as_ptr().cast(),
-                    file.len(),
-                    function.as_ptr().cast(),
-                    function.len(),
-                    name.as_ptr().cast(),
-                    name.len(),
-                )
-            };
+        let srcloc = unsafe {
+            sys::___tracy_alloc_srcloc_name(
+                line,
+                file.as_ptr().cast(),
+                file.len(),
+                function.as_ptr().cast(),
+                function.len(),
+                name.as_ptr().cast(),
+                name.len(),
+            )
+        };
 
-            let (start_query_id, end_query_id) = self.alloc_span_ids()?;
+        let (start_query_id, end_query_id) = self.alloc_span_ids()?;
 
-            unsafe {
-                sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
-                    srcloc,
-                    queryId: start_query_id,
-                    context: self.value,
-                })
-            };
-
-            Ok(GpuSpan {
-                context: self.clone(),
-                start_query_id,
-                end_query_id,
-                state: GpuSpanState::Started,
-                _private: (),
+        unsafe {
+            sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
+                srcloc,
+                queryId: start_query_id,
+                context: self.value,
             })
-        }
-        #[cfg(not(feature = "enable"))]
-        Ok(GpuSpan { _private: () })
+        };
+
+        Ok(GpuSpan {
+            context: self.clone(),
+            start_query_id,
+            end_query_id,
+            state: GpuSpanState::Started,
+        })
     }
 }
 
@@ -337,29 +305,24 @@ impl GpuSpan {
     /// Only the first time you call this function will it actually emit a gpu zone end event. Any
     /// subsequent calls will be ignored.
     pub fn end_zone(&mut self) {
-        #[cfg(feature = "enable")]
-        {
-            if self.state != GpuSpanState::Started {
-                return;
-            }
-            unsafe {
-                sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
-                    queryId: self.end_query_id,
-                    context: self.context.value,
-                })
-            };
-            self.state = GpuSpanState::Ended;
+        if self.state != GpuSpanState::Started {
+            return;
         }
+        unsafe {
+            sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
+                queryId: self.end_query_id,
+                context: self.context.value,
+            })
+        };
+        self.state = GpuSpanState::Ended;
     }
 
     /// Uploads the gpu timestamps associated with the span start and end to tracy,
     /// closing out the span.
     pub fn upload_timestamp(mut self, start_timestamp: i64, end_timestamp: i64) {
-        #[cfg(feature = "enable")]
         self.upload_timestamp_impl(start_timestamp, end_timestamp);
     }
 
-    #[cfg(feature = "enable")]
     fn upload_timestamp_impl(&mut self, start_timestamp: i64, end_timestamp: i64) {
         assert_eq!(
             self.state,
@@ -394,7 +357,6 @@ impl GpuSpan {
 
 impl Drop for GpuSpan {
     fn drop(&mut self) {
-        #[cfg(feature = "enable")]
         match self.state {
             GpuSpanState::Started => {
                 self.end_zone();
