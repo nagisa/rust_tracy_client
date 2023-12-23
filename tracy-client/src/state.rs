@@ -61,7 +61,7 @@ impl Client {
     /// anywhere in the process. This function can be called multiple times to obtain multiple
     /// `Client` values.
     ///
-    /// The underying client implementation will be started up only if it wasn't already running
+    /// The underlying client implementation will be started up only if it wasn't already running
     /// yet.
     ///
     /// Note that there currently isn't a mechanism to stop the client once it has been started.

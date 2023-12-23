@@ -96,7 +96,7 @@ impl std::fmt::Display for GpuContextCreationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "More than 255 contexts have been created at any point in the exection of this program."
+            "More than 255 contexts have been created at any point in the execution of this program."
         )
     }
 }
@@ -199,7 +199,7 @@ impl Client {
             };
 
             if let Some(name) = name {
-                // SAFTEY:
+                // SAFETY:
                 // - We've allocated a context.
                 // - The names will copied into the command stream, so the pointers do not need to last.
                 unsafe {
