@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use std::{
     convert::TryInto,
     sync::{Arc, Mutex},
@@ -83,7 +82,7 @@ pub struct GpuContext {
     _private: (),
 }
 #[cfg(feature = "enable")]
-static GPU_CONTEXT_INDEX: Lazy<Mutex<u8>> = Lazy::new(|| Mutex::new(0));
+static GPU_CONTEXT_INDEX: Mutex<u8> = Mutex::new(0);
 
 /// Errors that can occur when creating a gpu context.
 #[derive(Debug)]
