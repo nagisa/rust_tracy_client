@@ -48,6 +48,7 @@ system-tracing = ["client/system-tracing"]
 callstack-inlines = ["client/callstack-inlines"]
 manual-lifetime = ["client/manual-lifetime"]
 delayed-init = ["client/delayed-init"]
+flush-on-exit = ["client/flush-on-exit"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]

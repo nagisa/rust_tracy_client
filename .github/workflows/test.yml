@@ -16,7 +16,12 @@ jobs:
       matrix:
         rust_toolchain: [nightly, stable, 1.70.0]
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        flags: ["", "--release", "--no-default-features", "--all-features", "--features=manual-lifetime"]
+        flags: [
+          "",
+          "--release",
+          "--no-default-features",
+          "--features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines",
+          "--features=manual-lifetime"]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3

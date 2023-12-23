@@ -43,6 +43,7 @@ ondemand = []
 manual-lifetime = ["delayed-init"]
 delayed-init = []
 callstack-inlines = []
+flush-on-exit = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_sys_docs"]

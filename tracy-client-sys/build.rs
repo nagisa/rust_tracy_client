@@ -39,6 +39,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_DELAYED_INIT").is_some() {
         c.define("TRACY_DELAYED_INIT", None);
     }
+    if std::env::var_os("CARGO_FEATURE_FLUSH_ON_EXIT").is_some() {
+        c.define("TRACY_NO_EXIT", None);
+    }
 
     // Note: these are inversed and check for `is_none`!
     if std::env::var_os("CARGO_FEATURE_SYSTEM_TRACING").is_none() {
