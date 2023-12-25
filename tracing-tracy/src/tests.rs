@@ -125,7 +125,8 @@ fn benchmark_span(c: &mut Criterion) {
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                let _span = tracing::error_span!("message").entered();
+                let _span =
+                    tracing::error_span!("message", field1 = "first", field2 = "second").entered();
             });
         });
     });
@@ -135,7 +136,8 @@ fn benchmark_span(c: &mut Criterion) {
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                let _span = tracing::error_span!("message").entered();
+                let _span =
+                    tracing::error_span!("message", field1 = "first", field2 = "second").entered();
             });
         });
     });
@@ -147,7 +149,7 @@ fn benchmark_message(c: &mut Criterion) {
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                tracing::error!("message");
+                tracing::error!(field1 = "first", field2 = "second", "message");
             });
         });
     });
@@ -157,7 +159,7 @@ fn benchmark_message(c: &mut Criterion) {
             tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
-                tracing::error!("message");
+                tracing::error!(field1 = "first", field2 = "second", "message");
             });
         });
     });
