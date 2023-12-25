@@ -125,7 +125,6 @@ impl Client {
     }
 
     /// Obtain a client handle, but only if the client is already running.
-    #[inline(always)]
     #[must_use]
     pub fn running() -> Option<Self> {
         if Self::is_running() {
@@ -136,7 +135,6 @@ impl Client {
     }
 
     /// Is the client already running?
-    #[inline(always)]
     pub fn is_running() -> bool {
         #[cfg(feature = "enable")]
         return CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED;
@@ -148,7 +146,6 @@ impl Client {
 impl Clone for Client {
     /// A cheaper alternative to [`Client::start`] or [`Client::running`]  when there is already a
     /// handle handy.
-    #[inline(always)]
     fn clone(&self) -> Self {
         // We already know that the state is `ENABLED`, no need to check.
         Self(())
