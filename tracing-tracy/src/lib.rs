@@ -49,6 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
+use std::cell::Cell;
 use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
     field::{Field, Visit},
@@ -176,11 +177,16 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
+        thread_local! {
+            static BUF: Cell<String> = Cell::new(String::new());
+        }
+
         let mut visitor = TracyEventFieldVisitor {
-            dest: String::with_capacity(64),
+            dest: BUF.take(),
             first: true,
             frame_mark: false,
         };
+
         event.record(&mut visitor);
         if !visitor.first {
             self.client.message(
@@ -196,6 +202,9 @@ where
         if visitor.frame_mark {
             self.client.frame_mark();
         }
+
+        visitor.dest.clear();
+        BUF.set(visitor.dest)
     }
 
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
@@ -273,11 +282,11 @@ impl Visit for TracyEventFieldVisitor {
         // FIXME: this is a very crude formatter, but we don’t have
         // an easy way to do anything better...
         if self.first {
-            let _ = write!(&mut self.dest, "{} = {:?}", field.name(), value);
             self.first = false;
         } else {
-            let _ = write!(&mut self.dest, ", {} = {:?}", field.name(), value);
+            self.dest.push_str(", ");
         }
+        let _ = write!(&mut self.dest, "{} = {value:?}", field.name());
     }
 }
 
