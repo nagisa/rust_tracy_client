@@ -121,8 +121,7 @@ impl<F> TracyLayer<F> {
         error_msg: &'static str,
     ) -> &'d str {
         // From AllocSourceLocation
-        let mut max_len =
-            usize::from(u16::max_value()) - 2 - 4 - 4 - function.len() - 1 - file.len() - 1;
+        let mut max_len = usize::from(u16::MAX) - 2 - 4 - 4 - function.len() - 1 - file.len() - 1;
         if data.len() >= max_len {
             while !data.is_char_boundary(max_len) {
                 max_len -= 1;
@@ -148,86 +147,33 @@ where
     F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            let mut extensions = span.extensions_mut();
-            if extensions.get_mut::<FormattedFields<F>>().is_none() {
-                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
-                if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
-                    extensions.insert(fields);
-                }
+        let Some(span) = ctx.span(id) else {
+            return;
+        };
+
+        let mut extensions = span.extensions_mut();
+        if extensions.get_mut::<FormattedFields<F>>().is_none() {
+            let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+            if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
+                extensions.insert(fields);
             }
         }
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            let mut extensions = span.extensions_mut();
-            if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
-                let _ = self.fmt.add_fields(fields, values);
-            } else {
-                let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
-                if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
-                    extensions.insert(fields);
-                }
+        let Some(span) = ctx.span(id) else {
+            return;
+        };
+
+        let mut extensions = span.extensions_mut();
+        if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
+            let _ = self.fmt.add_fields(fields, values);
+        } else {
+            let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+            if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
+                extensions.insert(fields);
             }
         }
-    }
-
-    fn on_enter(&self, id: &Id, ctx: Context<S>) {
-        if let Some(span_data) = ctx.span(id) {
-            let metadata = span_data.metadata();
-            let file = metadata.file().unwrap_or("<not available>");
-            let line = metadata.line().unwrap_or(0);
-            let name: Cow<str> =
-                if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
-                    if fields.fields.as_str().is_empty() {
-                        metadata.name().into()
-                    } else {
-                        format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
-                    }
-                } else {
-                    metadata.name().into()
-                };
-            TRACY_SPAN_STACK.with(|s| {
-                s.borrow_mut().push_back((
-                    self.client.clone().span_alloc(
-                        Some(self.truncate_to_length(
-                            &name,
-                            file,
-                            "",
-                            "span information is too long and was truncated",
-                        )),
-                        "",
-                        file,
-                        line,
-                        self.stack_depth,
-                    ),
-                    id.into_u64(),
-                ));
-            });
-        }
-    }
-
-    fn on_exit(&self, id: &Id, _: Context<S>) {
-        TRACY_SPAN_STACK.with(|s| {
-            if let Some((span, span_id)) = s.borrow_mut().pop_back() {
-                if id.into_u64() != span_id {
-                    self.client.color_message(
-                        "Tracing spans exited out of order! \
-                        Trace may not be accurate for this span stack.",
-                        0xFF000000,
-                        self.stack_depth,
-                    );
-                }
-                drop(span);
-            } else {
-                self.client.color_message(
-                    "Exiting a tracing span, but got nothing on the tracy span stack!",
-                    0xFF000000,
-                    self.stack_depth,
-                );
-            }
-        });
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
@@ -252,6 +198,65 @@ where
             self.client.frame_mark();
         }
     }
+
+    fn on_enter(&self, id: &Id, ctx: Context<S>) {
+        let Some(span_data) = ctx.span(id) else {
+            return;
+        };
+
+        let metadata = span_data.metadata();
+        let file = metadata.file().unwrap_or("<not available>");
+        let line = metadata.line().unwrap_or(0);
+        let name: Cow<str> =
+            if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
+                if fields.fields.is_empty() {
+                    metadata.name().into()
+                } else {
+                    format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
+                }
+            } else {
+                metadata.name().into()
+            };
+        TRACY_SPAN_STACK.with(|s| {
+            s.borrow_mut().push_back((
+                self.client.clone().span_alloc(
+                    Some(self.truncate_to_length(
+                        &name,
+                        file,
+                        "",
+                        "span information is too long and was truncated",
+                    )),
+                    "",
+                    file,
+                    line,
+                    self.stack_depth,
+                ),
+                id.into_u64(),
+            ));
+        });
+    }
+
+    fn on_exit(&self, id: &Id, _: Context<S>) {
+        TRACY_SPAN_STACK.with(|s| {
+            if let Some((span, span_id)) = s.borrow_mut().pop_back() {
+                if id.into_u64() != span_id {
+                    self.client.color_message(
+                        "Tracing spans exited out of order! \
+                        Trace may not be accurate for this span stack.",
+                        0xFF000000,
+                        self.stack_depth,
+                    );
+                }
+                drop(span);
+            } else {
+                self.client.color_message(
+                    "Exiting a tracing span, but got nothing on the tracy span stack!",
+                    0xFF000000,
+                    self.stack_depth,
+                );
+            }
+        });
+    }
 }
 
 struct TracyEventFieldVisitor {
@@ -261,6 +266,13 @@ struct TracyEventFieldVisitor {
 }
 
 impl Visit for TracyEventFieldVisitor {
+    fn record_bool(&mut self, field: &Field, value: bool) {
+        match (value, field.name()) {
+            (true, "tracy.frame_mark") => self.frame_mark = true,
+            _ => self.record_debug(field, &value),
+        }
+    }
+
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
         // FIXME: this is a very crude formatter, but we don’t have
         // an easy way to do anything better...
@@ -269,13 +281,6 @@ impl Visit for TracyEventFieldVisitor {
             self.first = false;
         } else {
             let _ = write!(&mut self.dest, ", {} = {:?}", field.name(), value);
-        }
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        match (value, field.name()) {
-            (true, "tracy.frame_mark") => self.frame_mark = true,
-            _ => self.record_debug(field, &value),
         }
     }
 }

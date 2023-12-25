@@ -57,12 +57,12 @@ pub mod internal {
         span_name: *const u8,
         file: *const u8,
         line: u32,
-    ) -> crate::SpanLocation {
+    ) -> SpanLocation {
         #[cfg(feature = "enable")]
         {
             let function_name = CString::new(&type_name[..type_name.len() - 3]).unwrap();
-            crate::SpanLocation {
-                data: crate::sys::___tracy_source_location_data {
+            SpanLocation {
+                data: sys::___tracy_source_location_data {
                     name: span_name.cast(),
                     function: function_name.as_ptr(),
                     file: file.cast(),
