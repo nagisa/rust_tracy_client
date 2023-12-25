@@ -21,6 +21,7 @@ impl FrameName {
     ///
     /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
     /// and [`Client::non_continuous_frame`] methods.
+    #[must_use]
     pub fn new_leak(name: String) -> Self {
         #[cfg(feature = "enable")]
         {
@@ -104,6 +105,7 @@ impl Client {
     ///     .expect("client must be running")
     ///     .non_continuous_frame(frame_name!("a frame"));
     /// ```
+    #[must_use]
     pub fn non_continuous_frame(&self, name: FrameName) -> Frame {
         #[cfg(feature = "enable")]
         unsafe {

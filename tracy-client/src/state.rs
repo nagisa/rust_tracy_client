@@ -80,12 +80,12 @@ impl Client {
             let mut old_state = CLIENT_STATE.load(Ordering::Relaxed);
             loop {
                 match old_state {
-                    STATE_ENABLED => return Client(()),
+                    STATE_ENABLED => return Self(()),
                     STATE_ENABLING => {
                         while !Self::is_running() {
                             spin_loop();
                         }
-                        return Client(());
+                        return Self(());
                     }
                     STATE_DISABLED => {
                         let result = CLIENT_STATE.compare_exchange_weak(
@@ -112,7 +112,7 @@ impl Client {
                                 // TODO: we _could_ define `ENABLE_STATE` in the `-sys` crate...
                                 sys::___tracy_startup_profiler();
                                 CLIENT_STATE.store(STATE_ENABLED, Ordering::Release);
-                                return Client(());
+                                return Self(());
                             }
                         }
                     }
@@ -126,9 +126,10 @@ impl Client {
 
     /// Obtain a client handle, but only if the client is already running.
     #[inline(always)]
+    #[must_use]
     pub fn running() -> Option<Self> {
         if Self::is_running() {
-            Some(Client(()))
+            Some(Self(()))
         } else {
             None
         }
@@ -150,7 +151,7 @@ impl Clone for Client {
     #[inline(always)]
     fn clone(&self) -> Self {
         // We already know that the state is `ENABLED`, no need to check.
-        Client(())
+        Self(())
     }
 }
 

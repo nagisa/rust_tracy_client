@@ -4,3 +4,4 @@ members = [
     "tracy-client",
     "tracing-tracy",
 ]
+resolver = "2"

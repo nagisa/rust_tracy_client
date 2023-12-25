@@ -58,6 +58,7 @@ impl Client {
     /// } // _span ends
     /// ```
     #[inline]
+    #[must_use]
     pub fn span(self, loc: &'static SpanLocation, callstack_depth: u16) -> Span {
         #[cfg(feature = "enable")]
         unsafe {
@@ -104,6 +105,7 @@ impl Client {
     /// } // _span ends
     /// ```
     #[inline]
+    #[must_use]
     pub fn span_alloc(
         self,
         name: Option<&str>,
@@ -120,7 +122,7 @@ impl Client {
                 file.len(),
                 function.as_ptr().cast(),
                 function.len(),
-                name.map(|n| n.as_ptr().cast()).unwrap_or(std::ptr::null()),
+                name.map_or(std::ptr::null(), |n| n.as_ptr().cast()),
                 name.unwrap_or("").len(),
             );
             let zone = if callstack_depth == 0 {

@@ -52,6 +52,7 @@ pub mod internal {
     pub use std::ptr::null;
 
     #[inline(always)]
+    #[must_use]
     pub fn make_span_location(
         type_name: &'static str,
         span_name: *const u8,
@@ -77,11 +78,13 @@ pub mod internal {
     }
 
     #[inline(always)]
+    #[must_use]
     pub const unsafe fn create_frame_name(name: &'static str) -> crate::frame::FrameName {
         crate::frame::FrameName(name)
     }
 
     #[inline(always)]
+    #[must_use]
     pub const unsafe fn create_plot(name: &'static str) -> crate::plot::PlotName {
         crate::plot::PlotName(name)
     }
@@ -91,7 +94,7 @@ pub mod internal {
     pub unsafe fn set_thread_name(name: *const u8) {
         #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_set_thread_name(name.cast())
+            sys::___tracy_set_thread_name(name.cast());
         }
     }
 }
@@ -127,7 +130,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let stack_depth = adjust_stack_depth(callstack_depth).into();
-            sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth)
+            sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
         }
     }
 
@@ -143,7 +146,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let depth = adjust_stack_depth(callstack_depth).into();
-            sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth)
+            sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth);
         }
     }
 }
@@ -250,7 +253,7 @@ unsafe impl<T: alloc::GlobalAlloc> alloc::GlobalAlloc for ProfiledAllocator<T> {
         self.emit_free(ptr);
         unsafe {
             // SAFE: all invariants satisfied by the caller.
-            self.0.dealloc(ptr, layout)
+            self.0.dealloc(ptr, layout);
         }
     }
 

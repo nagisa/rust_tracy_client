@@ -39,5 +39,5 @@ mod tests {
 
 fn main() {
     #[cfg(all(feature = "enable", test))]
-    tests::main()
+    tests::main();
 }
