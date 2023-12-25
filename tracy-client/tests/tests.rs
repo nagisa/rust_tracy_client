@@ -51,7 +51,7 @@ fn plot_something() {
     static TEMPERATURE: PlotName = plot_name!("temperature");
     let client = Client::start();
     for i in 0..10 {
-        client.plot(TEMPERATURE, i as f64);
+        client.plot(TEMPERATURE, f64::from(i));
     }
 
     plot!("temperature", 42.0);
@@ -60,13 +60,13 @@ fn plot_something() {
 fn allocations() {
     let mut strings = Vec::new();
     for i in 0..100 {
-        strings.push(format!("{:?}", i));
+        strings.push(format!("{i:?}"));
     }
 }
 
 fn fib(i: u16) -> u64 {
     let span = span!();
-    span.emit_text(&format!("fib({})", i));
+    span.emit_text(&format!("fib({i})"));
     let result = match i {
         0 => 0,
         1 => 1,
@@ -151,6 +151,6 @@ fn main() {
         set_thread_name();
         gpu();
         // Sleep to give time to the client to send the data to the profiler.
-        std::thread::sleep(Duration::from_secs(5))
+        std::thread::sleep(Duration::from_secs(5));
     }
 }

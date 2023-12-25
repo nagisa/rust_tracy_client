@@ -15,6 +15,7 @@ impl PlotName {
     ///
     /// The resulting value may be used as an argument for the the [`Client::secondary_frame_mark`]
     /// and [`Client::non_continuous_frame`] methods.
+    #[must_use]
     pub fn new_leak(name: String) -> Self {
         #[cfg(feature = "enable")]
         {

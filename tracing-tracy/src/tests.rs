@@ -127,7 +127,7 @@ fn benchmark_span(c: &mut Criterion) {
             bencher.iter(|| {
                 let _span = tracing::error_span!("message").entered();
             });
-        })
+        });
     });
 
     c.bench_function("span/no_callstack", |bencher| {
@@ -137,7 +137,7 @@ fn benchmark_span(c: &mut Criterion) {
             bencher.iter(|| {
                 let _span = tracing::error_span!("message").entered();
             });
-        })
+        });
     });
 }
 
@@ -149,7 +149,7 @@ fn benchmark_message(c: &mut Criterion) {
             bencher.iter(|| {
                 tracing::error!("message");
             });
-        })
+        });
     });
 
     c.bench_function("event/no_callstack", |bencher| {
@@ -159,7 +159,7 @@ fn benchmark_message(c: &mut Criterion) {
             bencher.iter(|| {
                 tracing::error!("message");
             });
-        })
+        });
     });
 }
 

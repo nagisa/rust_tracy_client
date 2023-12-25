@@ -155,10 +155,10 @@ impl std::error::Error for GpuSpanCreationError {}
 impl Client {
     /// Creates a new GPU context.
     ///
-    /// - 'name' is the name of the context.
-    /// - 'ty' is the type (backend) of the context.
-    /// - 'gpu_timestamp' is the gpu side timestamp the corresponds (as close as possible) to this call.
-    /// - 'period' is the period of the gpu clock in nanoseconds (setting 1.0 means the clock is 1GHz, 1000.0 means 1MHz, etc).
+    /// - `name` is the name of the context.
+    /// - `ty` is the type (backend) of the context.
+    /// - `gpu_timestamp` is the gpu side timestamp the corresponds (as close as possible) to this call.
+    /// - `period` is the period of the gpu clock in nanoseconds (setting 1.0 means the clock is 1GHz, 1000.0 means 1MHz, etc).
     ///
     /// See the [type level documentation](GpuContext) for more information.
     ///
@@ -194,7 +194,7 @@ impl Client {
                     context,
                     flags: 0,
                     type_: ty as u8,
-                })
+                });
             };
 
             if let Some(name) = name {
@@ -208,7 +208,7 @@ impl Client {
                             name: name.as_ptr().cast(),
                             len: name.len().try_into().unwrap_or(u16::MAX),
                         },
-                    )
+                    );
                 }
             }
 
@@ -258,10 +258,10 @@ impl GpuContext {
             // always be smaller than u64, so no data will be lost.
             unsafe {
                 sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
-                    srcloc: (&span_location.data) as *const _ as usize as u64,
+                    srcloc: std::ptr::addr_of!(span_location.data) as usize as u64,
                     queryId: start_query_id,
                     context: self.value,
-                })
+                });
             };
 
             Ok(GpuSpan {
@@ -312,7 +312,7 @@ impl GpuContext {
                     srcloc,
                     queryId: start_query_id,
                     context: self.value,
-                })
+                });
             };
 
             Ok(GpuSpan {
@@ -345,7 +345,7 @@ impl GpuSpan {
                 sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
                     queryId: self.end_query_id,
                     context: self.context.value,
-                })
+                });
             };
             self.state = GpuSpanState::Ended;
         }
@@ -370,7 +370,7 @@ impl GpuSpan {
                 gpuTime: start_timestamp,
                 queryId: self.start_query_id,
                 context: self.context.value,
-            })
+            });
         };
 
         unsafe {
@@ -378,7 +378,7 @@ impl GpuSpan {
                 gpuTime: end_timestamp,
                 queryId: self.end_query_id,
                 context: self.context.value,
-            })
+            });
         };
 
         // Put the ids back into the freelist.

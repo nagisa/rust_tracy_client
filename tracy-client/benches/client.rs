@@ -14,7 +14,7 @@ fn client_clone(c: &mut Criterion) {
 
 fn client_running(c: &mut Criterion) {
     let _client = Client::start();
-    c.bench_function("running", |b| b.iter(|| Client::running()));
+    c.bench_function("running", |b| b.iter(Client::running));
 }
 
 fn ops_alloc(c: &mut Criterion) {

@@ -7,7 +7,7 @@ fn link_dependencies() {
         Ok("windows") => println!("cargo:rustc-link-lib=user32"),
         Ok(_) => {}
         Err(e) => {
-            writeln!(::std::io::stderr(), "Unable to get target_os=`{}`!", e)
+            writeln!(::std::io::stderr(), "Unable to get target_os=`{e}`!")
                 .expect("could not report the error");
             ::std::process::exit(0xfd);
         }
@@ -84,7 +84,7 @@ fn build_tracy_client() {
 fn main() {
     if let Ok(lib) = std::env::var("TRACY_CLIENT_LIB") {
         if let Ok(lib_path) = std::env::var("TRACY_CLIENT_LIB_PATH") {
-            println!("cargo:rustc-link-search=native={}", lib_path);
+            println!("cargo:rustc-link-search=native={lib_path}");
         }
         let kind = std::env::var_os("TRACY_CLIENT_STATIC");
         let mode = if kind.is_none() || kind.as_deref() == Some(std::ffi::OsStr::new("0")) {
@@ -93,7 +93,7 @@ fn main() {
             link_dependencies();
             "static"
         };
-        println!("cargo:rustc-link-lib={}={}", mode, lib);
+        println!("cargo:rustc-link-lib={mode}={lib}");
     } else {
         build_tracy_client();
     }

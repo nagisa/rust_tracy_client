@@ -84,6 +84,7 @@ impl TracyLayer<DefaultFields> {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             fmt: DefaultFields::default(),
@@ -99,12 +100,14 @@ impl<F> TracyLayer<F> {
     /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
     /// every instrumentation point. Specifying 0 frames (which is the default) will disable stack
     /// trace collection.
-    pub fn with_stackdepth(mut self, stack_depth: u16) -> Self {
+    #[must_use]
+    pub const fn with_stackdepth(mut self, stack_depth: u16) -> Self {
         self.stack_depth = stack_depth;
         self
     }
 
     /// Use a custom field formatting implementation.
+    #[must_use]
     pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
         TracyLayer {
             fmt,
@@ -147,9 +150,7 @@ where
     F: for<'writer> FormatFields<'writer> + 'static,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
-        let Some(span) = ctx.span(id) else {
-            return;
-        };
+        let Some(span) = ctx.span(id) else { return };
 
         let mut extensions = span.extensions_mut();
         if extensions.get_mut::<FormattedFields<F>>().is_none() {
@@ -161,9 +162,7 @@ where
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        let Some(span) = ctx.span(id) else {
-            return;
-        };
+        let Some(span) = ctx.span(id) else { return };
 
         let mut extensions = span.extensions_mut();
         if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
@@ -200,23 +199,20 @@ where
     }
 
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
-        let Some(span_data) = ctx.span(id) else {
-            return;
-        };
+        let Some(span) = ctx.span(id) else { return };
 
-        let metadata = span_data.metadata();
+        let metadata = span.metadata();
         let file = metadata.file().unwrap_or("<not available>");
         let line = metadata.line().unwrap_or(0);
-        let name: Cow<str> =
-            if let Some(fields) = span_data.extensions().get::<FormattedFields<F>>() {
-                if fields.fields.is_empty() {
-                    metadata.name().into()
-                } else {
-                    format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
-                }
-            } else {
+        let name: Cow<str> = if let Some(fields) = span.extensions().get::<FormattedFields<F>>() {
+            if fields.fields.is_empty() {
                 metadata.name().into()
-            };
+            } else {
+                format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
+            }
+        } else {
+            metadata.name().into()
+        };
         TRACY_SPAN_STACK.with(|s| {
             s.borrow_mut().push_back((
                 self.client.clone().span_alloc(
