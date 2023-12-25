@@ -89,8 +89,8 @@ pub mod internal {
         crate::plot::PlotName(name)
     }
 
-    #[inline(always)]
     /// Safety: `name` must be null-terminated, and a `Client` must be enabled
+    #[inline(always)]
     pub unsafe fn set_thread_name(name: *const u8) {
         #[cfg(feature = "enable")]
         unsafe {
@@ -278,7 +278,6 @@ unsafe impl<T: alloc::GlobalAlloc> alloc::GlobalAlloc for ProfiledAllocator<T> {
 }
 
 /// Clamp the stack depth to the maximum supported by Tracy.
-#[inline(always)]
 pub(crate) const fn adjust_stack_depth(depth: u16) -> u16 {
     #[cfg(windows)]
     {
