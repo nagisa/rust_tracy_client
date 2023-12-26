@@ -5,6 +5,7 @@ authors.workspace = true
 build = "build.rs"
 license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
 edition.workspace = true
+rust-version.workspace = true
 readme = "README.mkd"
 repository.workspace = true
 homepage.workspace = true
