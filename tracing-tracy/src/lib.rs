@@ -49,7 +49,12 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
+use std::{
+    borrow::Cow,
+    cell::{Cell, RefCell},
+    collections::VecDeque,
+    fmt::Write,
+};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -70,6 +75,9 @@ thread_local! {
     /// A stack of spans currently active on the current thread.
     static TRACY_SPAN_STACK: RefCell<VecDeque<(Span, u64)>> =
         RefCell::new(VecDeque::with_capacity(16));
+
+    /// Indicator of whether `Client::set_thread_name_from_std` has been called for this thread.
+    static TRACY_THREAD_NAME_INIT: Cell<bool> = Cell::new(false);
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
@@ -133,6 +141,15 @@ impl<F> TracyLayer<F> {
         } else {
             data
         }
+    }
+
+    fn set_tracy_thread_name_once(&self) {
+        TRACY_THREAD_NAME_INIT.with(|is_init| {
+            if !is_init.get() {
+                is_init.set(true);
+                self.client.set_thread_name_from_std();
+            }
+        });
     }
 }
 
@@ -205,6 +222,7 @@ where
                     id.into_u64(),
                 ));
             });
+            self.set_tracy_thread_name_once();
         }
     }
 
@@ -228,6 +246,7 @@ where
                 );
             }
         });
+        self.set_tracy_thread_name_once();
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
@@ -251,6 +270,7 @@ where
         if visitor.frame_mark {
             self.client.frame_mark();
         }
+        self.set_tracy_thread_name_once();
     }
 }
 

@@ -94,6 +94,21 @@ fn tls_confusion() {
 fn set_thread_name() {
     let _client = Client::start();
     set_thread_name!("test thread");
+    // Test with unnamed threads.
+    let t1 = std::thread::spawn(|| {
+        let client = Client::start();
+        client.set_thread_name_from_std();
+    });
+    let _ = t1.join();
+    // Test with named threads.
+    let t2 = std::thread::Builder::new()
+        .name("thread name".to_owned())
+        .spawn(|| {
+            let client = Client::start();
+            client.set_thread_name_from_std();
+        })
+        .unwrap();
+    let _ = t2.join();
 }
 
 fn nameless_span() {
