@@ -50,7 +50,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We made sure the `plot` refers to a null-terminated string.
-            sys::___tracy_emit_plot(plot_name.0.as_ptr().cast(), value);
+            let () = sys::___tracy_emit_plot(plot_name.0.as_ptr().cast(), value);
         }
     }
 }
