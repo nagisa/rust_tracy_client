@@ -22,8 +22,8 @@ mod tests {
         }
     }
 
-    /// Cannot use a libtest harness here because we need manual control over the profiler startup and
-    /// shutdown.
+    /// Cannot use a libtest harness here because we need manual control over
+    /// the profiler startup and shutdown.
     pub(crate) fn main() {
         unsafe {
             ___tracy_startup_profiler();

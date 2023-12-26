@@ -150,7 +150,7 @@ impl Span {
         #[cfg(feature = "enable")]
         unsafe {
             // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-            sys::___tracy_emit_zone_value(self.zone, value);
+            let () = sys::___tracy_emit_zone_value(self.zone, value);
         }
     }
 
@@ -159,7 +159,7 @@ impl Span {
         #[cfg(feature = "enable")]
         unsafe {
             // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
-            sys::___tracy_emit_zone_text(self.zone, text.as_ptr().cast(), text.len());
+            let () = sys::___tracy_emit_zone_text(self.zone, text.as_ptr().cast(), text.len());
         }
     }
 
@@ -169,7 +169,7 @@ impl Span {
         unsafe {
             // SAFE: the only way to construct `Span` is by creating a valid tracy zone context.
             // TODO: verify if we need to shift by 8 or not...?
-            sys::___tracy_emit_zone_color(self.zone, color);
+            let () = sys::___tracy_emit_zone_color(self.zone, color);
         }
     }
 }
@@ -180,7 +180,7 @@ impl Drop for Span {
         unsafe {
             // SAFE: The only way to construct `Span` is by creating a valid tracy zone context. We
             // also still have an owned Client handle.
-            sys::___tracy_emit_zone_end(self.zone);
+            let () = sys::___tracy_emit_zone_end(self.zone);
             std::convert::identity(&self.client);
         }
     }

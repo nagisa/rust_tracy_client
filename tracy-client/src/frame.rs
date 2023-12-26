@@ -61,7 +61,7 @@ impl Client {
     pub fn frame_mark(&self) {
         #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_emit_frame_mark(std::ptr::null());
+            let () = sys::___tracy_emit_frame_mark(std::ptr::null());
         }
     }
 
@@ -88,7 +88,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We ensured that the name would be null-terminated.
-            sys::___tracy_emit_frame_mark(name.0.as_ptr().cast());
+            let () = sys::___tracy_emit_frame_mark(name.0.as_ptr().cast());
         }
     }
 
@@ -110,7 +110,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             // SAFE: We ensure that the name would be null-terminated.
-            sys::___tracy_emit_frame_mark_start(name.0.as_ptr().cast());
+            let () = sys::___tracy_emit_frame_mark_start(name.0.as_ptr().cast());
         }
         Frame(self.clone(), name)
     }
@@ -133,7 +133,7 @@ impl Drop for Frame {
         unsafe {
             // SAFE: We ensure that thena me would be null-terminated. We also still have an owned
             // Client handle.
-            sys::___tracy_emit_frame_mark_end(self.1 .0.as_ptr().cast());
+            let () = sys::___tracy_emit_frame_mark_end(self.1 .0.as_ptr().cast());
             std::convert::identity(&self.0);
         }
     }

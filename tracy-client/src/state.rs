@@ -110,7 +110,7 @@ impl Client {
                                 // manage.
                                 //
                                 // TODO: we _could_ define `ENABLE_STATE` in the `-sys` crate...
-                                sys::___tracy_startup_profiler();
+                                let () = sys::___tracy_startup_profiler();
                                 CLIENT_STATE.store(STATE_ENABLED, Ordering::Release);
                                 return Self(());
                             }

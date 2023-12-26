@@ -3,6 +3,8 @@
     not(feature = "enable"),
     allow(unused_variables, unused_imports, unused_mut, dead_code)
 )]
+// TODO https://github.com/rust-lang/rust-clippy/issues/12017
+#![allow(clippy::let_unit_value)]
 //! This crate is a set of safe bindings to the client library of the [Tracy profiler].
 //!
 //! If you have already instrumented your application with `tracing`, consider the `tracing-tracy`
@@ -94,7 +96,7 @@ pub mod internal {
     pub unsafe fn set_thread_name(name: *const u8) {
         #[cfg(feature = "enable")]
         unsafe {
-            sys::___tracy_set_thread_name(name.cast());
+            let () = sys::___tracy_set_thread_name(name.cast());
         }
     }
 }
@@ -130,7 +132,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let stack_depth = adjust_stack_depth(callstack_depth).into();
-            sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
+            let () = sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
         }
     }
 
@@ -146,7 +148,7 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let depth = adjust_stack_depth(callstack_depth).into();
-            sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth);
+            let () = sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth);
         }
     }
 }
@@ -220,9 +222,9 @@ impl<T> ProfiledAllocator<T> {
         unsafe {
             Client::start();
             if self.1 == 0 {
-                sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
+                let () = sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
             } else {
-                sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
+                let () = sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
             }
         }
     }
@@ -231,9 +233,9 @@ impl<T> ProfiledAllocator<T> {
         #[cfg(feature = "enable")]
         unsafe {
             if self.1 == 0 {
-                sys::___tracy_emit_memory_free(ptr.cast(), 1);
+                let () = sys::___tracy_emit_memory_free(ptr.cast(), 1);
             } else {
-                sys::___tracy_emit_memory_free_callstack(ptr.cast(), self.1.into(), 1);
+                let () = sys::___tracy_emit_memory_free_callstack(ptr.cast(), self.1.into(), 1);
             }
         }
     }
