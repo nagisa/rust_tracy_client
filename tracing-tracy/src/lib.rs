@@ -49,8 +49,12 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::cell::Cell;
-use std::{borrow::Cow, cell::RefCell, collections::VecDeque, fmt::Write};
+use std::{
+    borrow::Cow,
+    cell::{RefCell, UnsafeCell},
+    collections::VecDeque,
+    fmt::Write,
+};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -69,8 +73,8 @@ pub use client;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
-    static TRACY_SPAN_STACK: RefCell<VecDeque<(Span, u64)>> =
-        RefCell::new(VecDeque::with_capacity(16));
+    static TRACY_SPAN_STACK: UnsafeCell<VecDeque<(Span, u64)>> =
+        const { UnsafeCell::new(VecDeque::new()) };
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
@@ -178,52 +182,61 @@ where
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
         thread_local! {
-            static BUF: Cell<String> = Cell::new(String::new());
+            static BUF: RefCell<String> = const { RefCell::new(String::new()) };
         }
 
-        let mut visitor = TracyEventFieldVisitor {
-            dest: BUF.take(),
-            first: true,
-            frame_mark: false,
-        };
+        BUF.with(|buf| {
+            // Formatting fields can execute arbitrary user code which includes potentially calling
+            // on_event again. Thus, we must fallback to dynamic allocation when that happens.
+            let mut buf = buf.try_borrow_mut();
+            let mut backup = String::new();
+            let mut visitor = TracyEventFieldVisitor {
+                dest: buf.as_deref_mut().unwrap_or(&mut backup),
+                first: true,
+                frame_mark: false,
+            };
 
-        event.record(&mut visitor);
-        if !visitor.first {
-            self.client.message(
-                self.truncate_to_length(
-                    &visitor.dest,
-                    "",
-                    "",
-                    "event message is too long and was truncated",
-                ),
-                self.stack_depth,
-            );
-        }
-        if visitor.frame_mark {
-            self.client.frame_mark();
-        }
+            event.record(&mut visitor);
+            if !visitor.first {
+                self.client.message(
+                    self.truncate_to_length(
+                        visitor.dest,
+                        "",
+                        "",
+                        "event message is too long and was truncated",
+                    ),
+                    self.stack_depth,
+                );
+            }
+            if visitor.frame_mark {
+                self.client.frame_mark();
+            }
 
-        visitor.dest.clear();
-        BUF.set(visitor.dest)
+            if let Ok(mut buf) = buf {
+                buf.clear()
+            }
+        });
     }
 
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         let Some(span) = ctx.span(id) else { return };
 
-        let metadata = span.metadata();
-        let file = metadata.file().unwrap_or("<not available>");
-        let line = metadata.line().unwrap_or(0);
-        let name: Cow<str> = if let Some(fields) = span.extensions().get::<FormattedFields<F>>() {
-            if fields.fields.is_empty() {
-                metadata.name().into()
+        let stack_frame = {
+            let metadata = span.metadata();
+            let name: Cow<str> = if let Some(fields) = span.extensions().get::<FormattedFields<F>>()
+            {
+                if fields.fields.is_empty() {
+                    metadata.name().into()
+                } else {
+                    format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
+                }
             } else {
-                format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
-            }
-        } else {
-            metadata.name().into()
-        };
-        TRACY_SPAN_STACK.with(|s| {
-            s.borrow_mut().push_back((
+                metadata.name().into()
+            };
+
+            let file = metadata.file().unwrap_or("<not available>");
+            let line = metadata.line().unwrap_or(0);
+            (
                 self.client.clone().span_alloc(
                     Some(self.truncate_to_length(
                         &name,
@@ -237,40 +250,44 @@ where
                     self.stack_depth,
                 ),
                 id.into_u64(),
-            ));
+            )
+        };
+
+        TRACY_SPAN_STACK.with(|s| {
+            unsafe { &mut *s.get() }.push_back(stack_frame);
         });
     }
 
     fn on_exit(&self, id: &Id, _: Context<S>) {
-        TRACY_SPAN_STACK.with(|s| {
-            if let Some((span, span_id)) = s.borrow_mut().pop_back() {
-                if id.into_u64() != span_id {
-                    self.client.color_message(
-                        "Tracing spans exited out of order! \
-                        Trace may not be accurate for this span stack.",
-                        0xFF000000,
-                        self.stack_depth,
-                    );
-                }
-                drop(span);
-            } else {
+        let stack_frame = TRACY_SPAN_STACK.with(|s| unsafe { &mut *s.get() }.pop_back());
+
+        if let Some((span, span_id)) = stack_frame {
+            if id.into_u64() != span_id {
                 self.client.color_message(
-                    "Exiting a tracing span, but got nothing on the tracy span stack!",
+                    "Tracing spans exited out of order! \
+                        Trace may not be accurate for this span stack.",
                     0xFF000000,
                     self.stack_depth,
                 );
             }
-        });
+            drop(span);
+        } else {
+            self.client.color_message(
+                "Exiting a tracing span, but got nothing on the tracy span stack!",
+                0xFF000000,
+                self.stack_depth,
+            );
+        }
     }
 }
 
-struct TracyEventFieldVisitor {
-    dest: String,
+struct TracyEventFieldVisitor<'a> {
+    dest: &'a mut String,
     frame_mark: bool,
     first: bool,
 }
 
-impl Visit for TracyEventFieldVisitor {
+impl Visit for TracyEventFieldVisitor<'_> {
     fn record_bool(&mut self, field: &Field, value: bool) {
         match (value, field.name()) {
             (true, "tracy.frame_mark") => self.frame_mark = true,
