@@ -4,6 +4,7 @@ version = "0.16.4" # AUTO-BUMP
 authors.workspace = true
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 readme = "README.mkd"
 repository.workspace = true
 homepage.workspace = true
