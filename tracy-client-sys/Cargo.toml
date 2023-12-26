@@ -1,13 +1,13 @@
 [package]
 name = "tracy-client-sys"
 version = "0.22.0" # AUTO-BUMP
-authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
+authors.workspace = true
 build = "build.rs"
 license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
-edition = "2021"
+edition.workspace = true
 readme = "README.mkd"
-repository = "https://github.com/nagisa/rust_tracy_client"
-homepage = "https://github.com/nagisa/rust_tracy_client"
+repository.workspace = true
+homepage.workspace = true
 documentation = "https://docs.rs/tracy-client-sys"
 description = """
 Low level bindings to the client libraries for the Tracy profiler

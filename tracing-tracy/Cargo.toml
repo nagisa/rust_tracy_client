@@ -1,12 +1,12 @@
 [package]
 name = "tracing-tracy"
 version = "0.10.4"
-authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
-license = "MIT/Apache-2.0"
-edition = "2021"
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 readme = "README.mkd"
-repository = "https://github.com/nagisa/rust_tracy_client"
-homepage = "https://github.com/nagisa/rust_tracy_client"
+repository.workspace = true
+homepage.workspace = true
 documentation = "https://docs.rs/tracing-tracy"
 description = """
 Inspect tracing-enabled Rust applications with Tracy
