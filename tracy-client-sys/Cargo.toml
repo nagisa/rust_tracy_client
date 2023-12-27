@@ -23,7 +23,7 @@ required-features = ["fibers"]
 [dependencies]
 
 [build-dependencies]
-cc = { version = "1.0.82", default-features = false }
+cc = { version = "1.0.83", default-features = false }
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.

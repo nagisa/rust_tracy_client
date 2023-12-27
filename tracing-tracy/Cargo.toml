@@ -28,7 +28,7 @@ tokio = { version = "1", features = ["full"] }
 tracing-attributes =  { version = "0.1"}
 tracing-futures = { version = "0.2" }
 futures = "0.3"
-criterion = "0.3"
+criterion = "0.5"
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.

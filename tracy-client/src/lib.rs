@@ -132,7 +132,8 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let stack_depth = adjust_stack_depth(callstack_depth).into();
-            let () = sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
+            let () =
+                sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
         }
     }
 
@@ -148,7 +149,12 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let depth = adjust_stack_depth(callstack_depth).into();
-            let () = sys::___tracy_emit_messageC(message.as_ptr().cast(), message.len(), rgba >> 8, depth);
+            let () = sys::___tracy_emit_messageC(
+                message.as_ptr().cast(),
+                message.len(),
+                rgba >> 8,
+                depth,
+            );
         }
     }
 }
@@ -224,7 +230,8 @@ impl<T> ProfiledAllocator<T> {
             if self.1 == 0 {
                 let () = sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
             } else {
-                let () = sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
+                let () =
+                    sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
             }
         }
     }
