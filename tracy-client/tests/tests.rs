@@ -43,8 +43,8 @@ fn finish_secondary_frameset() {
 fn non_continuous_frameset() {
     const NON_CONTINUOUS: FrameName = frame_name!("non continuous");
     let client = Client::start();
-    client.non_continuous_frame(NON_CONTINUOUS);
-    non_continuous_frame!("non continuous macro");
+    let _ = client.non_continuous_frame(NON_CONTINUOUS);
+    let _ = non_continuous_frame!("non continuous macro");
 }
 
 fn plot_something() {
@@ -98,8 +98,8 @@ fn set_thread_name() {
 
 fn nameless_span() {
     let client = Client::start();
-    span!();
-    client.span_alloc(None, "nameless_span", file!(), line!(), 0);
+    let _ = span!();
+    let _ = client.span_alloc(None, "nameless_span", file!(), line!(), 0);
     set_thread_name!("test thread");
 }
 

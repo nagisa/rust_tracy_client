@@ -18,17 +18,17 @@ fn client_running(c: &mut Criterion) {
 }
 
 fn ops_alloc(c: &mut Criterion) {
-    let client = tracy_client::Client::start();
+    let client = Client::start();
     c.bench_function("span_alloc_callstack/0", |bencher| {
         bencher.iter(|| {
-            client
+            let _ = client
                 .clone()
                 .span_alloc(Some("hello"), "function", "file", 42, 0);
         });
     });
     c.bench_function("span_alloc_callstack/100", |bencher| {
         bencher.iter(|| {
-            client
+            let _ = client
                 .clone()
                 .span_alloc(Some("hello"), "function", "file", 42, 100);
         });
@@ -39,12 +39,12 @@ fn ops_static(c: &mut Criterion) {
     let _client = tracy_client::Client::start();
     c.bench_function("span_callstack/0", |bencher| {
         bencher.iter(|| {
-            tracy_client::span!("some_name", 0);
+            let _ = tracy_client::span!("some_name", 0);
         });
     });
     c.bench_function("span_callstack/100", |bencher| {
         bencher.iter(|| {
-            tracy_client::span!("some_name", 100);
+            let _ = tracy_client::span!("some_name", 100);
         });
     });
 }

@@ -101,7 +101,7 @@ impl Client {
     /// ```
     /// use tracy_client::frame_name;
     /// # let client = tracy_client::Client::start();
-    /// tracy_client::Client::running()
+    /// let _guard = tracy_client::Client::running()
     ///     .expect("client must be running")
     ///     .non_continuous_frame(frame_name!("a frame"));
     /// ```
