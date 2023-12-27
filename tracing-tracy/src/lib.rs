@@ -72,12 +72,17 @@ thread_local! {
         const { UnsafeCell::new(VecDeque::new()) };
 }
 
-#[derive(Default)]
 struct VecCell<T> {
     items: UnsafeCell<Vec<T>>,
 }
 
 impl<T> VecCell<T> {
+    const fn new() -> Self {
+        Self {
+            items: UnsafeCell::new(Vec::new()),
+        }
+    }
+
     fn push(&self, item: T) {
         unsafe { &mut *self.items.get() }.push(item);
     }
@@ -88,12 +93,11 @@ impl<T> VecCell<T> {
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
+#[derive(Clone)]
 pub struct TracyLayer<F = DefaultFields> {
     fmt: F,
     stack_depth: u16,
     client: Client,
-
-    buf_cache: VecCell<String>,
 }
 
 impl TracyLayer<DefaultFields> {
@@ -106,8 +110,6 @@ impl TracyLayer<DefaultFields> {
             fmt: DefaultFields::default(),
             stack_depth: 0,
             client: Client::start(),
-
-            buf_cache: VecCell::default(),
         }
     }
 }
@@ -131,7 +133,6 @@ impl<F> TracyLayer<F> {
             fmt,
             stack_depth: self.stack_depth,
             client: self.client,
-            buf_cache: self.buf_cache,
         }
     }
 
@@ -195,31 +196,37 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
-        let mut buf = self.buf_cache.pop().unwrap_or_default();
-        let mut visitor = TracyEventFieldVisitor {
-            dest: &mut buf,
-            first: true,
-            frame_mark: false,
-        };
-
-        event.record(&mut visitor);
-        if !visitor.first {
-            self.client.message(
-                self.truncate_to_length(
-                    visitor.dest,
-                    "",
-                    "",
-                    "event message is too long and was truncated",
-                ),
-                self.stack_depth,
-            );
-        }
-        if visitor.frame_mark {
-            self.client.frame_mark();
+        thread_local! {
+            static CACHE: VecCell<String> = const { VecCell::new() };
         }
 
-        buf.clear();
-        self.buf_cache.push(buf)
+        CACHE.with(|cache| {
+            let mut buf = cache.pop().unwrap_or_default();
+            let mut visitor = TracyEventFieldVisitor {
+                dest: &mut buf,
+                first: true,
+                frame_mark: false,
+            };
+
+            event.record(&mut visitor);
+            if !visitor.first {
+                self.client.message(
+                    self.truncate_to_length(
+                        visitor.dest,
+                        "",
+                        "",
+                        "event message is too long and was truncated",
+                    ),
+                    self.stack_depth,
+                );
+            }
+            if visitor.frame_mark {
+                self.client.frame_mark();
+            }
+
+            buf.clear();
+            cache.push(buf);
+        });
     }
 
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
