@@ -49,7 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::{borrow::Cow, cell::UnsafeCell, collections::VecDeque, fmt::Write, mem};
+use std::{borrow::Cow, cell::UnsafeCell, fmt::Write, mem};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -68,8 +68,7 @@ pub use client;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
-    static TRACY_SPAN_STACK: UnsafeCell<VecDeque<(Span, u64)>> =
-        const { UnsafeCell::new(VecDeque::new()) };
+    static TRACY_SPAN_STACK: VecCell<(Span, u64)> = const { VecCell::new() };
 }
 
 struct VecCell<T> {
@@ -267,12 +266,12 @@ where
         };
 
         TRACY_SPAN_STACK.with(|s| {
-            unsafe { &mut *s.get() }.push_back(stack_frame);
+            s.push(stack_frame);
         });
     }
 
     fn on_exit(&self, id: &Id, _: Context<S>) {
-        let stack_frame = TRACY_SPAN_STACK.with(|s| unsafe { &mut *s.get() }.pop_back());
+        let stack_frame = TRACY_SPAN_STACK.with(VecCell::pop);
 
         if let Some((span, span_id)) = stack_frame {
             if id.into_u64() != span_id {
