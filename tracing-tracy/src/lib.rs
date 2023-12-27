@@ -49,7 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::{borrow::Cow, cell::UnsafeCell, collections::VecDeque, fmt::Write};
+use std::{borrow::Cow, cell::UnsafeCell, collections::VecDeque, fmt::Write, mem};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -164,6 +164,10 @@ impl Default for TracyLayer {
     }
 }
 
+thread_local! {
+    static CACHE: VecCell<String> = const { VecCell::new() };
+}
+
 impl<S, F> Layer<S> for TracyLayer<F>
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
@@ -174,7 +178,8 @@ where
 
         let mut extensions = span.extensions_mut();
         if extensions.get_mut::<FormattedFields<F>>().is_none() {
-            let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+            let mut fields =
+                FormattedFields::<F>::new(CACHE.with(|cache| cache.pop().unwrap_or_default()));
             if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
                 extensions.insert(fields);
             }
@@ -188,7 +193,8 @@ where
         if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
             let _ = self.fmt.add_fields(fields, values);
         } else {
-            let mut fields = FormattedFields::<F>::new(String::with_capacity(64));
+            let mut fields =
+                FormattedFields::<F>::new(CACHE.with(|cache| cache.pop().unwrap_or_default()));
             if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
                 extensions.insert(fields);
             }
@@ -196,10 +202,6 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
-        thread_local! {
-            static CACHE: VecCell<String> = const { VecCell::new() };
-        }
-
         CACHE.with(|cache| {
             let mut buf = cache.pop().unwrap_or_default();
             let mut visitor = TracyEventFieldVisitor {
@@ -289,6 +291,18 @@ where
                 self.stack_depth,
             );
         }
+    }
+
+    fn on_close(&self, id: Id, ctx: Context<'_, S>) {
+        let Some(span_data) = ctx.span(&id) else {
+            return;
+        };
+
+        if let Some(fields) = span_data.extensions_mut().get_mut::<FormattedFields<F>>() {
+            let mut buf = mem::take(&mut fields.fields);
+            buf.clear();
+            CACHE.with(|cache| cache.push(buf));
+        };
     }
 }
 
