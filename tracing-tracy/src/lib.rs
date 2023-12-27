@@ -49,12 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::{
-    borrow::Cow,
-    cell::{RefCell, UnsafeCell},
-    collections::VecDeque,
-    fmt::Write,
-};
+use std::{borrow::Cow, cell::UnsafeCell, collections::VecDeque, fmt::Write};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -77,12 +72,28 @@ thread_local! {
         const { UnsafeCell::new(VecDeque::new()) };
 }
 
+#[derive(Default)]
+struct VecCell<T> {
+    items: UnsafeCell<Vec<T>>,
+}
+
+impl<T> VecCell<T> {
+    fn push(&self, item: T) {
+        unsafe { &mut *self.items.get() }.push(item);
+    }
+
+    fn pop(&self) -> Option<T> {
+        unsafe { &mut *self.items.get() }.pop()
+    }
+}
+
 /// A tracing layer that collects data in Tracy profiling format.
-#[derive(Clone)]
 pub struct TracyLayer<F = DefaultFields> {
     fmt: F,
     stack_depth: u16,
     client: Client,
+
+    buf_cache: VecCell<String>,
 }
 
 impl TracyLayer<DefaultFields> {
@@ -95,6 +106,8 @@ impl TracyLayer<DefaultFields> {
             fmt: DefaultFields::default(),
             stack_depth: 0,
             client: Client::start(),
+
+            buf_cache: VecCell::default(),
         }
     }
 }
@@ -118,6 +131,7 @@ impl<F> TracyLayer<F> {
             fmt,
             stack_depth: self.stack_depth,
             client: self.client,
+            buf_cache: self.buf_cache,
         }
     }
 
@@ -181,41 +195,31 @@ where
     }
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
-        thread_local! {
-            static BUF: RefCell<String> = const { RefCell::new(String::new()) };
+        let mut buf = self.buf_cache.pop().unwrap_or_default();
+        let mut visitor = TracyEventFieldVisitor {
+            dest: &mut buf,
+            first: true,
+            frame_mark: false,
+        };
+
+        event.record(&mut visitor);
+        if !visitor.first {
+            self.client.message(
+                self.truncate_to_length(
+                    visitor.dest,
+                    "",
+                    "",
+                    "event message is too long and was truncated",
+                ),
+                self.stack_depth,
+            );
+        }
+        if visitor.frame_mark {
+            self.client.frame_mark();
         }
 
-        BUF.with(|buf| {
-            // Formatting fields can execute arbitrary user code which includes potentially calling
-            // on_event again. Thus, we must fallback to dynamic allocation when that happens.
-            let mut buf = buf.try_borrow_mut();
-            let mut backup = String::new();
-            let mut visitor = TracyEventFieldVisitor {
-                dest: buf.as_deref_mut().unwrap_or(&mut backup),
-                first: true,
-                frame_mark: false,
-            };
-
-            event.record(&mut visitor);
-            if !visitor.first {
-                self.client.message(
-                    self.truncate_to_length(
-                        visitor.dest,
-                        "",
-                        "",
-                        "event message is too long and was truncated",
-                    ),
-                    self.stack_depth,
-                );
-            }
-            if visitor.frame_mark {
-                self.client.frame_mark();
-            }
-
-            if let Ok(mut buf) = buf {
-                buf.clear()
-            }
-        });
+        buf.clear();
+        self.buf_cache.push(buf)
     }
 
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
