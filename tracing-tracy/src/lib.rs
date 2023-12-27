@@ -50,7 +50,7 @@
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{borrow::Cow, fmt::Write, mem};
+use std::{fmt::Write, mem};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -78,6 +78,7 @@ thread_local! {
 pub struct TracyLayer<F = DefaultFields> {
     fmt: F,
     stack_depth: u16,
+    fields_in_zone_name: bool,
     client: Client,
 }
 
@@ -90,6 +91,7 @@ impl TracyLayer<DefaultFields> {
         Self {
             fmt: DefaultFields::default(),
             stack_depth: 0,
+            fields_in_zone_name: true,
             client: Client::start(),
         }
     }
@@ -107,12 +109,27 @@ impl<F> TracyLayer<F> {
         self
     }
 
+    /// Specify whether or not to include tracing span fields in the tracy zone name, or to emit
+    /// them as zone text.
+    ///
+    /// The former enables zone analysis along unique span field invocations, while the latter
+    /// aggregates every invocation of a given span into a single zone, irrespective of field
+    /// values.
+    ///
+    /// Defaults to true.
+    #[must_use]
+    pub const fn with_fields_in_zone_name(mut self, fields_in_zone_name: bool) -> Self {
+        self.fields_in_zone_name = fields_in_zone_name;
+        self
+    }
+
     /// Use a custom field formatting implementation.
     #[must_use]
     pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
         TracyLayer {
             fmt,
             stack_depth: self.stack_depth,
+            fields_in_zone_name: self.fields_in_zone_name,
             client: self.client,
         }
     }
@@ -228,36 +245,44 @@ where
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         let Some(span) = ctx.span(id) else { return };
 
+        let extensions = span.extensions();
+        let fields = extensions.get::<FormattedFields<F>>();
         let stack_frame = {
             let metadata = span.metadata();
-            let name: Cow<str> = if let Some(fields) = span.extensions().get::<FormattedFields<F>>()
-            {
-                if fields.fields.is_empty() {
-                    metadata.name().into()
-                } else {
-                    format!("{}{{{}}}", metadata.name(), fields.fields.as_str()).into()
-                }
-            } else {
-                metadata.name().into()
-            };
-
             let file = metadata.file().unwrap_or("<not available>");
             let line = metadata.line().unwrap_or(0);
-            (
-                self.client.clone().span_alloc(
-                    Some(self.truncate_to_length(
-                        &name,
-                        file,
+            let span = |name: &str| {
+                (
+                    self.client.clone().span_alloc(
+                        Some(self.truncate_to_length(
+                            name,
+                            file,
+                            "",
+                            "span information is too long and was truncated",
+                        )),
                         "",
-                        "span information is too long and was truncated",
-                    )),
-                    "",
-                    file,
-                    line,
-                    self.stack_depth,
-                ),
-                id.into_u64(),
-            )
+                        file,
+                        line,
+                        self.stack_depth,
+                    ),
+                    id.into_u64(),
+                )
+            };
+
+            match fields {
+                None => span(metadata.name()),
+                Some(fields) if fields.is_empty() => span(metadata.name()),
+                Some(fields) if self.fields_in_zone_name => CACHE.with(|cache| {
+                    let mut buf = cache.acquire();
+                    let _ = write!(buf, "{}{{{}}}", metadata.name(), fields.fields);
+                    span(&buf)
+                }),
+                Some(fields) => {
+                    let span = span(metadata.name());
+                    span.0.emit_text(&fields.fields);
+                    span
+                }
+            }
         };
 
         TRACY_SPAN_STACK.with(|s| {
