@@ -134,15 +134,27 @@ impl<F> TracyLayer<F> {
         }
     }
 
-    fn truncate_to_length<'d>(
+    fn truncate_span_to_length<'a>(
         &self,
-        data: &'d str,
+        data: &'a str,
         file: &str,
         function: &str,
         error_msg: &'static str,
-    ) -> &'d str {
-        // From AllocSourceLocation
-        let mut max_len = usize::from(u16::MAX) - 2 - 4 - 4 - function.len() - 1 - file.len() - 1;
+    ) -> &'a str {
+        self.truncate_to_length(
+            // From AllocSourceLocation
+            usize::from(u16::MAX) - 2 - 4 - 4 - function.len() - 1 - file.len() - 1,
+            data,
+            error_msg,
+        )
+    }
+
+    fn truncate_to_length<'a>(
+        &self,
+        mut max_len: usize,
+        data: &'a str,
+        error_msg: &'static str,
+    ) -> &'a str {
         if data.len() >= max_len {
             while !data.is_char_boundary(max_len) {
                 max_len -= 1;
@@ -228,9 +240,8 @@ where
             if !visitor.first {
                 self.client.message(
                     self.truncate_to_length(
+                        (u16::MAX - 1).into(),
                         visitor.dest,
-                        "",
-                        "",
                         "event message is too long and was truncated",
                     ),
                     self.stack_depth,
@@ -254,7 +265,7 @@ where
             let span = |name: &str| {
                 (
                     self.client.clone().span_alloc(
-                        Some(self.truncate_to_length(
+                        Some(self.truncate_span_to_length(
                             name,
                             file,
                             "",
@@ -279,7 +290,11 @@ where
                 }),
                 Some(fields) => {
                     let span = span(metadata.name());
-                    span.0.emit_text(&fields.fields);
+                    span.0.emit_text(self.truncate_to_length(
+                        (u16::MAX - 1).into(),
+                        &fields.fields,
+                        "span field values are too long and were truncated",
+                    ));
                     span
                 }
             }
