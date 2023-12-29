@@ -49,7 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
-use std::{borrow::Cow, cell::UnsafeCell, fmt::Write, mem};
+use std::{borrow::Cow, fmt::Write, mem};
 use tracing_core::{
     field::{Field, Visit},
     span::{Attributes, Id, Record},
@@ -63,32 +63,13 @@ use tracing_subscriber::{
 };
 
 use client::{Client, Span};
+use utils::{StrCache, StrCacheGuard, VecCell};
 
 pub use client;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
     static TRACY_SPAN_STACK: VecCell<(Span, u64)> = const { VecCell::new() };
-}
-
-struct VecCell<T> {
-    items: UnsafeCell<Vec<T>>,
-}
-
-impl<T> VecCell<T> {
-    const fn new() -> Self {
-        Self {
-            items: UnsafeCell::new(Vec::new()),
-        }
-    }
-
-    fn push(&self, item: T) {
-        unsafe { &mut *self.items.get() }.push(item);
-    }
-
-    fn pop(&self) -> Option<T> {
-        unsafe { &mut *self.items.get() }.pop()
-    }
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
@@ -164,7 +145,7 @@ impl Default for TracyLayer {
 }
 
 thread_local! {
-    static CACHE: VecCell<String> = const { VecCell::new() };
+    static CACHE: StrCache = const { StrCache::new() };
 }
 
 impl<S, F> Layer<S> for TracyLayer<F>
@@ -178,7 +159,7 @@ where
         let mut extensions = span.extensions_mut();
         if extensions.get_mut::<FormattedFields<F>>().is_none() {
             let mut fields =
-                FormattedFields::<F>::new(CACHE.with(|cache| cache.pop().unwrap_or_default()));
+                FormattedFields::<F>::new(CACHE.with(|cache| cache.acquire().into_inner()));
             if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
                 extensions.insert(fields);
             }
@@ -193,7 +174,7 @@ where
             let _ = self.fmt.add_fields(fields, values);
         } else {
             let mut fields =
-                FormattedFields::<F>::new(CACHE.with(|cache| cache.pop().unwrap_or_default()));
+                FormattedFields::<F>::new(CACHE.with(|cache| cache.acquire().into_inner()));
             if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
                 extensions.insert(fields);
             }
@@ -202,7 +183,7 @@ where
 
     fn on_event(&self, event: &Event, _: Context<'_, S>) {
         CACHE.with(|cache| {
-            let mut buf = cache.pop().unwrap_or_default();
+            let mut buf = cache.acquire();
             let mut visitor = TracyEventFieldVisitor {
                 dest: &mut buf,
                 first: true,
@@ -224,9 +205,6 @@ where
             if visitor.frame_mark {
                 self.client.frame_mark();
             }
-
-            buf.clear();
-            cache.push(buf);
         });
     }
 
@@ -293,14 +271,11 @@ where
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
-        let Some(span_data) = ctx.span(&id) else {
-            return;
-        };
+        let Some(span) = ctx.span(&id) else { return };
 
-        if let Some(fields) = span_data.extensions_mut().get_mut::<FormattedFields<F>>() {
-            let mut buf = mem::take(&mut fields.fields);
-            buf.clear();
-            CACHE.with(|cache| cache.push(buf));
+        if let Some(fields) = span.extensions_mut().get_mut::<FormattedFields<F>>() {
+            let buf = mem::take(&mut fields.fields);
+            CACHE.with(|cache| drop(StrCacheGuard::new(cache, buf)));
         };
     }
 }
@@ -339,5 +314,82 @@ fn main() {
         tests::bench();
     } else {
         tests::test();
+    }
+}
+
+mod utils {
+    use std::cell::UnsafeCell;
+    use std::mem;
+    use std::ops::{Deref, DerefMut};
+
+    pub struct VecCell<T>(UnsafeCell<Vec<T>>);
+
+    impl<T> VecCell<T> {
+        pub const fn new() -> Self {
+            Self(UnsafeCell::new(Vec::new()))
+        }
+
+        pub fn push(&self, item: T) {
+            unsafe { &mut *self.0.get() }.push(item);
+        }
+
+        pub fn pop(&self) -> Option<T> {
+            unsafe { &mut *self.0.get() }.pop()
+        }
+    }
+
+    pub struct StrCache(VecCell<String>);
+
+    impl StrCache {
+        pub const fn new() -> Self {
+            Self(VecCell::new())
+        }
+
+        pub fn acquire(&self) -> StrCacheGuard {
+            StrCacheGuard::new(
+                self,
+                self.0.pop().unwrap_or_else(|| String::with_capacity(64)),
+            )
+        }
+
+        fn release(&self, mut buf: String) {
+            buf.clear();
+            self.0.push(buf);
+        }
+    }
+
+    pub struct StrCacheGuard<'a> {
+        cache: &'a StrCache,
+        buf: String,
+    }
+
+    impl<'a> StrCacheGuard<'a> {
+        pub fn new(cache: &'a StrCache, buf: String) -> Self {
+            Self { cache, buf }
+        }
+
+        pub fn into_inner(mut self) -> String {
+            mem::take(&mut self.buf)
+        }
+    }
+
+    impl Deref for StrCacheGuard<'_> {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.buf
+        }
+    }
+
+    impl DerefMut for StrCacheGuard<'_> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.buf
+        }
+    }
+
+    impl Drop for StrCacheGuard<'_> {
+        fn drop(&mut self) {
+            self.cache.release(mem::take(&mut self.buf));
+        }
     }
 }
