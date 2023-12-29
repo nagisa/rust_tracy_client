@@ -75,14 +75,16 @@ thread_local! {
 
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer<F = DefaultFields> {
+pub struct TracyLayer<
+    const STACK_DEPTH: u16 = 0,
+    const FIELDS_IN_ZONE_NAME: bool = true,
+    F = DefaultFields,
+> {
     fmt: F,
-    stack_depth: u16,
-    fields_in_zone_name: bool,
     client: Client,
 }
 
-impl TracyLayer<DefaultFields> {
+impl TracyLayer {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
@@ -90,23 +92,28 @@ impl TracyLayer<DefaultFields> {
     pub fn new() -> Self {
         Self {
             fmt: DefaultFields::default(),
-            stack_depth: 0,
-            fields_in_zone_name: true,
             client: Client::start(),
         }
     }
 }
 
-impl<F> TracyLayer<F> {
+impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
+    TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, F>
+{
     /// Specify the maximum number of stack frames that will be collected.
     ///
     /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
-    /// every instrumentation point. Specifying 0 frames (which is the default) will disable stack
-    /// trace collection.
+    /// every instrumentation point. Specifying 0 frames will disable stack trace collection.
+    ///
+    /// Defaults to 0.
     #[must_use]
-    pub const fn with_stackdepth(mut self, stack_depth: u16) -> Self {
-        self.stack_depth = stack_depth;
-        self
+    pub fn with_stack_depth<const WITH_STACK_DEPTH: u16>(
+        self,
+    ) -> TracyLayer<WITH_STACK_DEPTH, FIELDS_IN_ZONE_NAME, F> {
+        TracyLayer {
+            fmt: self.fmt,
+            client: self.client,
+        }
     }
 
     /// Specify whether or not to include tracing span fields in the tracy zone name, or to emit
@@ -118,18 +125,23 @@ impl<F> TracyLayer<F> {
     ///
     /// Defaults to true.
     #[must_use]
-    pub const fn with_fields_in_zone_name(mut self, fields_in_zone_name: bool) -> Self {
-        self.fields_in_zone_name = fields_in_zone_name;
-        self
+    pub fn with_fields_in_zone_name<const WITH_FIELDS_IN_ZONE_NAME: bool>(
+        self,
+    ) -> TracyLayer<STACK_DEPTH, WITH_FIELDS_IN_ZONE_NAME, F> {
+        TracyLayer {
+            fmt: self.fmt,
+            client: self.client,
+        }
     }
 
     /// Use a custom field formatting implementation.
     #[must_use]
-    pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
+    pub fn with_formatter<Fmt>(
+        self,
+        fmt: Fmt,
+    ) -> TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, Fmt> {
         TracyLayer {
             fmt,
-            stack_depth: self.stack_depth,
-            fields_in_zone_name: self.fields_in_zone_name,
             client: self.client,
         }
     }
@@ -160,7 +172,7 @@ impl<F> TracyLayer<F> {
                 max_len -= 1;
             }
             self.client
-                .color_message(error_msg, 0xFF000000, self.stack_depth);
+                .color_message(error_msg, 0xFF000000, STACK_DEPTH);
             &data[..max_len]
         } else {
             data
@@ -194,7 +206,8 @@ thread_local! {
     static CACHE: StrCache = const { StrCache::new() };
 }
 
-impl<S, F> Layer<S> for TracyLayer<F>
+impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, S, F> Layer<S>
+    for TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, F>
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
     F: for<'writer> FormatFields<'writer> + 'static,
@@ -244,7 +257,7 @@ where
                         visitor.dest,
                         "event message is too long and was truncated",
                     ),
-                    self.stack_depth,
+                    STACK_DEPTH,
                 );
             }
             if visitor.frame_mark {
@@ -274,7 +287,7 @@ where
                         "",
                         file,
                         line,
-                        self.stack_depth,
+                        STACK_DEPTH,
                     ),
                     id.into_u64(),
                 )
@@ -283,7 +296,7 @@ where
             match fields {
                 None => span(metadata.name()),
                 Some(fields) if fields.is_empty() => span(metadata.name()),
-                Some(fields) if self.fields_in_zone_name => CACHE.with(|cache| {
+                Some(fields) if FIELDS_IN_ZONE_NAME => CACHE.with(|cache| {
                     let mut buf = cache.acquire();
                     let _ = write!(buf, "{}{{{}}}", metadata.name(), fields.fields);
                     span(&buf)
@@ -314,7 +327,7 @@ where
                     "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                     0xFF000000,
-                    self.stack_depth,
+                    STACK_DEPTH,
                 );
             }
             drop(span);
@@ -322,7 +335,7 @@ where
             self.client.color_message(
                 "Exiting a tracing span, but got nothing on the tracy span stack!",
                 0xFF000000,
-                self.stack_depth,
+                STACK_DEPTH,
             );
         }
     }

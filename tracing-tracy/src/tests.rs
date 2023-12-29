@@ -124,7 +124,7 @@ pub(crate) fn test() {
 fn benchmark_span(c: &mut Criterion) {
     c.bench_function("span/callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<100>());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -135,7 +135,7 @@ fn benchmark_span(c: &mut Criterion) {
 
     c.bench_function("span/no_callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<0>());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -148,7 +148,7 @@ fn benchmark_span(c: &mut Criterion) {
 fn benchmark_message(c: &mut Criterion) {
     c.bench_function("event/callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(100));
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<100>());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");
@@ -158,7 +158,7 @@ fn benchmark_message(c: &mut Criterion) {
 
     c.bench_function("event/no_callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stackdepth(0));
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<0>());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");
