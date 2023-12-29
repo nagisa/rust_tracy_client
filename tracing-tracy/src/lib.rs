@@ -49,6 +49,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{borrow::Cow, fmt::Write, mem};
 use tracing_core::{
     field::{Field, Visit},
@@ -142,6 +143,22 @@ impl Default for TracyLayer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+static MAX_CACHE_SIZE: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+/// Specify the maximum number of bytes used in thread local caches.
+///
+/// A value of zero disables the cache, while a value of [`usize::MAX`] denotes an unlimited
+/// cache size.
+///
+/// Note: the upper bound on the cache size is respected on a best effort basis only. We make
+/// no guarantees on the maximum memory used by tracing-tracy. Notably, changes to this value
+/// are eventually consistent, i.e. caches are not flushed upon an update.
+///
+/// Defaults to [`usize::MAX`].
+pub fn set_max_cache_size(max_bytes_used_per_thread: usize) {
+    MAX_CACHE_SIZE.store(max_bytes_used_per_thread, Ordering::Relaxed);
 }
 
 thread_local! {
@@ -318,9 +335,12 @@ fn main() {
 }
 
 mod utils {
-    use std::cell::UnsafeCell;
+    use crate::MAX_CACHE_SIZE;
+    use std::cell::{Cell, UnsafeCell};
     use std::mem;
+    use std::mem::ManuallyDrop;
     use std::ops::{Deref, DerefMut};
+    use std::sync::atomic::Ordering;
 
     pub struct VecCell<T>(UnsafeCell<Vec<T>>);
 
@@ -338,23 +358,47 @@ mod utils {
         }
     }
 
-    pub struct StrCache(VecCell<String>);
+    pub struct StrCache {
+        str_bufs: VecCell<String>,
+        total_size: Cell<usize>,
+    }
 
     impl StrCache {
         pub const fn new() -> Self {
-            Self(VecCell::new())
+            Self {
+                str_bufs: VecCell::new(),
+                total_size: Cell::new(0),
+            }
         }
 
         pub fn acquire(&self) -> StrCacheGuard {
             StrCacheGuard::new(
                 self,
-                self.0.pop().unwrap_or_else(|| String::with_capacity(64)),
+                self.str_bufs
+                    .pop()
+                    // TODO use inspect once 1.76 is stable
+                    .map(|buf| {
+                        self.total_size.set(self.total_size.get() - buf.capacity());
+                        buf
+                    })
+                    .unwrap_or_else(|| String::with_capacity(64)),
             )
         }
 
         fn release(&self, mut buf: String) {
+            let new_cache_size = self.total_size.get().saturating_add(buf.capacity());
+            if new_cache_size == usize::MAX {
+                // This is never going to happen, but if we've used the entire address space,
+                // don't bother adding another cache entry as this keeps the logic simpler.
+                return;
+            };
+            if buf.capacity() == 0 || new_cache_size > MAX_CACHE_SIZE.load(Ordering::Relaxed) {
+                return;
+            }
+            self.total_size.set(new_cache_size);
+
             buf.clear();
-            self.0.push(buf);
+            self.str_bufs.push(buf);
         }
     }
 
@@ -368,8 +412,9 @@ mod utils {
             Self { cache, buf }
         }
 
-        pub fn into_inner(mut self) -> String {
-            mem::take(&mut self.buf)
+        pub fn into_inner(self) -> String {
+            let mut this = ManuallyDrop::new(self);
+            mem::take(&mut this.buf)
         }
     }
 
