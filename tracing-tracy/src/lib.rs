@@ -306,9 +306,27 @@ struct TracyEventFieldVisitor<'a> {
 impl Visit for TracyEventFieldVisitor<'_> {
     fn record_bool(&mut self, field: &Field, value: bool) {
         match (value, field.name()) {
-            (true, "tracy.frame_mark") => self.frame_mark = true,
-            _ => self.record_debug(field, &value),
+            (_, "tracy.frame_mark") => self.frame_mark = value,
+            (true, _) => self.record_str(field, "true"),
+            (false, _) => self.record_str(field, "false"),
         }
+    }
+
+    fn record_str(&mut self, field: &Field, value: &str) {
+        {
+            let alloc_always_size = field.name().len() + " = ".len() + value.len();
+            if self.first {
+                self.dest.reserve(alloc_always_size);
+                self.first = false;
+            } else {
+                self.dest.reserve(", ".len() + alloc_always_size);
+                self.dest.push_str(", ");
+            }
+        }
+
+        self.dest.push_str(field.name());
+        self.dest.push_str(" = ");
+        self.dest.push_str(value);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
@@ -316,10 +334,10 @@ impl Visit for TracyEventFieldVisitor<'_> {
         // an easy way to do anything better...
         if self.first {
             self.first = false;
+            let _ = write!(self.dest, "{} = {value:?}", field.name());
         } else {
-            self.dest.push_str(", ");
+            let _ = write!(self.dest, ", {} = {value:?}", field.name());
         }
-        let _ = write!(&mut self.dest, "{} = {value:?}", field.name());
     }
 }
 
