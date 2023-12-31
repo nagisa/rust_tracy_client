@@ -145,7 +145,7 @@ impl Default for TracyLayer {
     }
 }
 
-static MAX_CACHE_SIZE: AtomicUsize = AtomicUsize::new(usize::MAX);
+static MAX_CACHE_SIZE: AtomicUsize = AtomicUsize::new(8192);
 
 /// Specify the maximum number of bytes used in thread local caches.
 ///
@@ -156,7 +156,7 @@ static MAX_CACHE_SIZE: AtomicUsize = AtomicUsize::new(usize::MAX);
 /// no guarantees on the maximum memory used by tracing-tracy. Notably, changes to this value
 /// are eventually consistent, i.e. caches are not flushed upon an update.
 ///
-/// Defaults to [`usize::MAX`].
+/// Defaults to `8192`.
 pub fn set_max_cache_size(max_bytes_used_per_thread: usize) {
     MAX_CACHE_SIZE.store(max_bytes_used_per_thread, Ordering::Relaxed);
 }
@@ -410,13 +410,22 @@ mod utils {
                 // don't bother adding another cache entry as this keeps the logic simpler.
                 return;
             };
-            if buf.capacity() == 0 || new_cache_size > MAX_CACHE_SIZE.load(Ordering::Relaxed) {
+            let max_size = MAX_CACHE_SIZE.load(Ordering::Relaxed);
+            if buf.capacity() == 0 || max_size == 0 {
                 return;
             }
-            self.total_size.set(new_cache_size);
 
             buf.clear();
             self.str_bufs.push(buf);
+            self.total_size.set(new_cache_size);
+
+            if new_cache_size > max_size {
+                unsafe { &mut *self.str_bufs.0.get() }.sort_unstable_by_key(String::capacity);
+                if let Some(trimmed) = self.str_bufs.pop() {
+                    self.total_size
+                        .set(self.total_size.get() - trimmed.capacity());
+                }
+            }
         }
     }
 
