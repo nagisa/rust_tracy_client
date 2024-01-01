@@ -313,18 +313,17 @@ impl Visit for TracyEventFieldVisitor<'_> {
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        {
-            let alloc_always_size = field.name().len() + " = ".len() + value.len();
-            if self.first {
-                self.dest.reserve(alloc_always_size);
-                self.first = false;
-            } else {
-                self.dest.reserve(", ".len() + alloc_always_size);
-                self.dest.push_str(", ");
-            }
+        let name = field.name();
+        let alloc_always_size = name.len() + " = ".len() + value.len();
+        if self.first {
+            self.dest.reserve(alloc_always_size);
+            self.first = false;
+        } else {
+            self.dest.reserve(", ".len() + alloc_always_size);
+            self.dest.push_str(", ");
         }
 
-        self.dest.push_str(field.name());
+        self.dest.push_str(name);
         self.dest.push_str(" = ");
         self.dest.push_str(value);
     }
@@ -368,10 +367,16 @@ mod utils {
         }
 
         pub fn push(&self, item: T) {
+            // SAFETY:
+            // The reference to the contents of the UnsafeCell remain strictly within this method.
+            // In addition, this method is not re-entrant.
             unsafe { &mut *self.0.get() }.push(item);
         }
 
         pub fn pop(&self) -> Option<T> {
+            // SAFETY:
+            // The reference to the contents of the UnsafeCell remain strictly within this method.
+            // In addition, this method is not re-entrant.
             unsafe { &mut *self.0.get() }.pop()
         }
     }
@@ -420,6 +425,9 @@ mod utils {
             self.total_size.set(new_cache_size);
 
             if new_cache_size > max_size {
+                // SAFETY:
+                // Sorting is not re-entrant and VecCell does not hold active references. Since we
+                // hold a reference for the duration of this line only, we do not alias.
                 unsafe { &mut *self.str_bufs.0.get() }.sort_unstable_by_key(String::capacity);
                 if let Some(trimmed) = self.str_bufs.pop() {
                     self.total_size
