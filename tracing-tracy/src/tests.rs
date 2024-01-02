@@ -42,10 +42,12 @@ fn out_of_order() {
 }
 
 fn exit_in_different_thread() {
-    let span = Box::leak(Box::new(span!(Level::INFO, "exit in different thread")));
+    let span = Box::new(span!(Level::INFO, "exit in different thread"));
     let entry = span.enter();
-    let thread = std::thread::spawn(move || drop(entry));
-    thread.join().unwrap();
+    std::thread::scope(|scope| {
+        let thread = scope.spawn(move || drop(entry));
+        thread.join().unwrap();
+    });
 }
 
 async fn parent_task(subtasks: usize) {
@@ -81,11 +83,11 @@ async fn async_futures() {
 }
 
 fn message_too_long() {
-    info!("{}", "a".repeat(u16::max_value().into()));
+    info!("{}", "a".repeat(u16::MAX.into()));
 }
 
 fn long_span_data() {
-    let data = "c".repeat(u16::max_value().into());
+    let data = "c".repeat(u16::MAX.into());
     info_span!("some span name", "{}", data).in_scope(|| {});
 }
 
