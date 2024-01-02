@@ -4,6 +4,8 @@ use tracing::{debug, event, info, info_span, span, Level};
 use tracing_attributes::instrument;
 use tracing_subscriber::layer::SubscriberExt;
 
+use crate::config::ZeroU16;
+
 fn it_works() {
     let span = span!(Level::TRACE, "a sec");
     let _enter = span.enter();
@@ -124,7 +126,7 @@ pub(crate) fn test() {
 fn benchmark_span(c: &mut Criterion) {
     c.bench_function("span/callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<100>());
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -135,7 +137,7 @@ fn benchmark_span(c: &mut Criterion) {
 
     c.bench_function("span/no_callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<0>());
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth(ZeroU16));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -148,7 +150,7 @@ fn benchmark_span(c: &mut Criterion) {
 fn benchmark_message(c: &mut Criterion) {
     c.bench_function("event/callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<100>());
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth(100));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");
@@ -158,7 +160,7 @@ fn benchmark_message(c: &mut Criterion) {
 
     c.bench_function("event/no_callstack", |bencher| {
         let layer =
-            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth::<0>());
+            tracing_subscriber::registry().with(super::TracyLayer::new().with_stack_depth(ZeroU16));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");

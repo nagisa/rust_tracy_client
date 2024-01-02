@@ -66,6 +66,7 @@ use tracing_subscriber::{
 use client::{Client, Span};
 use utils::{StrCache, StrCacheGuard, VecCell};
 
+use crate::config::{ConfigOption, True, ZeroU16};
 pub use client;
 
 thread_local! {
@@ -73,33 +74,90 @@ thread_local! {
     static TRACY_SPAN_STACK: VecCell<(Span, u64)> = const { VecCell::new() };
 }
 
+/// Configuration option types for [`TracyLayer`].
+///
+/// Prefer using hardcoded struct types (e.g. [`True`] rather than `true`) for better optimization.
+pub mod config {
+    use std::num::NonZeroU16;
+
+    /// Base trait used for configuration options.
+    pub trait ConfigOption<T> {
+        fn get(&self) -> T;
+    }
+
+    impl ConfigOption<bool> for bool {
+        fn get(&self) -> bool {
+            *self
+        }
+    }
+
+    #[derive(Default, Copy, Clone, Debug)]
+    pub struct True;
+
+    impl ConfigOption<bool> for True {
+        fn get(&self) -> bool {
+            true
+        }
+    }
+
+    #[derive(Default, Copy, Clone, Debug)]
+    pub struct False;
+
+    impl ConfigOption<bool> for False {
+        fn get(&self) -> bool {
+            false
+        }
+    }
+
+    impl ConfigOption<u16> for u16 {
+        fn get(&self) -> u16 {
+            *self
+        }
+    }
+
+    impl ConfigOption<u16> for NonZeroU16 {
+        fn get(&self) -> u16 {
+            (*self).get()
+        }
+    }
+
+    #[derive(Default, Copy, Clone, Debug)]
+    pub struct ZeroU16;
+
+    impl ConfigOption<u16> for ZeroU16 {
+        fn get(&self) -> u16 {
+            0
+        }
+    }
+}
+
 /// A tracing layer that collects data in Tracy profiling format.
 #[derive(Clone)]
-pub struct TracyLayer<
-    const STACK_DEPTH: u16 = 0,
-    const FIELDS_IN_ZONE_NAME: bool = true,
-    F = DefaultFields,
-> {
-    fmt: F,
+pub struct TracyLayer<StackDepth, FieldsInZoneName, Fmt> {
+    stack_depth: StackDepth,
+    fields_in_zone_name: FieldsInZoneName,
+    fmt: Fmt,
     client: Client,
 }
 
-impl TracyLayer {
+type TracyLayerDefaults = TracyLayer<ZeroU16, True, DefaultFields>;
+
+impl TracyLayerDefaults {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            fmt: DefaultFields::default(),
+            stack_depth: Default::default(),
+            fields_in_zone_name: Default::default(),
+            fmt: Default::default(),
             client: Client::start(),
         }
     }
 }
 
-impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
-    TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, F>
-{
+impl<StackDepth, FieldsInZoneName, Fmt> TracyLayer<StackDepth, FieldsInZoneName, Fmt> {
     /// Specify the maximum number of stack frames that will be collected.
     ///
     /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
@@ -107,10 +165,10 @@ impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
     ///
     /// Defaults to 0.
     #[must_use]
-    pub fn with_stack_depth<const WITH_STACK_DEPTH: u16>(
-        self,
-    ) -> TracyLayer<WITH_STACK_DEPTH, FIELDS_IN_ZONE_NAME, F> {
+    pub fn with_stack_depth<C>(self, stack_depth: C) -> TracyLayer<C, FieldsInZoneName, Fmt> {
         TracyLayer {
+            stack_depth,
+            fields_in_zone_name: self.fields_in_zone_name,
             fmt: self.fmt,
             client: self.client,
         }
@@ -125,10 +183,13 @@ impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
     ///
     /// Defaults to true.
     #[must_use]
-    pub fn with_fields_in_zone_name<const WITH_FIELDS_IN_ZONE_NAME: bool>(
+    pub fn with_fields_in_zone_name<C>(
         self,
-    ) -> TracyLayer<STACK_DEPTH, WITH_FIELDS_IN_ZONE_NAME, F> {
+        fields_in_zone_name: C,
+    ) -> TracyLayer<StackDepth, C, Fmt> {
         TracyLayer {
+            stack_depth: self.stack_depth,
+            fields_in_zone_name,
             fmt: self.fmt,
             client: self.client,
         }
@@ -136,16 +197,19 @@ impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
 
     /// Use a custom field formatting implementation.
     #[must_use]
-    pub fn with_formatter<Fmt>(
-        self,
-        fmt: Fmt,
-    ) -> TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, Fmt> {
+    pub fn with_formatter<C>(self, fmt: C) -> TracyLayer<StackDepth, FieldsInZoneName, C> {
         TracyLayer {
+            stack_depth: self.stack_depth,
+            fields_in_zone_name: self.fields_in_zone_name,
             fmt,
             client: self.client,
         }
     }
+}
 
+impl<StackDepth: ConfigOption<u16>, FieldsInZoneName, Fmt>
+    TracyLayer<StackDepth, FieldsInZoneName, Fmt>
+{
     fn truncate_span_to_length<'a>(
         &self,
         data: &'a str,
@@ -172,7 +236,7 @@ impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
                 max_len -= 1;
             }
             self.client
-                .color_message(error_msg, 0xFF000000, STACK_DEPTH);
+                .color_message(error_msg, 0xFF000000, self.stack_depth.get());
             &data[..max_len]
         } else {
             data
@@ -180,7 +244,7 @@ impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, F>
     }
 }
 
-impl Default for TracyLayer {
+impl Default for TracyLayerDefaults {
     fn default() -> Self {
         Self::new()
     }
@@ -206,9 +270,10 @@ thread_local! {
     static CACHE: StrCache = const { StrCache::new() };
 }
 
-impl<const STACK_DEPTH: u16, const FIELDS_IN_ZONE_NAME: bool, S, F> Layer<S>
-    for TracyLayer<STACK_DEPTH, FIELDS_IN_ZONE_NAME, F>
+impl<StackDepth, FieldsInZoneName, S, F> Layer<S> for TracyLayer<StackDepth, FieldsInZoneName, F>
 where
+    StackDepth: ConfigOption<u16> + 'static,
+    FieldsInZoneName: ConfigOption<bool> + 'static,
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
     F: for<'writer> FormatFields<'writer> + 'static,
 {
@@ -257,7 +322,7 @@ where
                         visitor.dest,
                         "event message is too long and was truncated",
                     ),
-                    STACK_DEPTH,
+                    self.stack_depth.get(),
                 );
             }
             if visitor.frame_mark {
@@ -287,7 +352,7 @@ where
                         "",
                         file,
                         line,
-                        STACK_DEPTH,
+                        self.stack_depth.get(),
                     ),
                     id.into_u64(),
                 )
@@ -296,7 +361,7 @@ where
             match fields {
                 None => span(metadata.name()),
                 Some(fields) if fields.is_empty() => span(metadata.name()),
-                Some(fields) if FIELDS_IN_ZONE_NAME => CACHE.with(|cache| {
+                Some(fields) if self.fields_in_zone_name.get() => CACHE.with(|cache| {
                     let mut buf = cache.acquire();
                     let _ = write!(buf, "{}{{{}}}", metadata.name(), fields.fields);
                     span(&buf)
@@ -327,7 +392,7 @@ where
                     "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                     0xFF000000,
-                    STACK_DEPTH,
+                    self.stack_depth.get(),
                 );
             }
             drop(span);
@@ -335,7 +400,7 @@ where
             self.client.color_message(
                 "Exiting a tracing span, but got nothing on the tracy span stack!",
                 0xFF000000,
-                STACK_DEPTH,
+                self.stack_depth.get(),
             );
         }
     }
@@ -405,12 +470,13 @@ fn main() {
 }
 
 mod utils {
-    use crate::MAX_CACHE_SIZE;
     use std::cell::{Cell, UnsafeCell};
     use std::mem;
     use std::mem::ManuallyDrop;
     use std::ops::{Deref, DerefMut};
     use std::sync::atomic::Ordering;
+
+    use crate::MAX_CACHE_SIZE;
 
     pub struct VecCell<T>(UnsafeCell<Vec<T>>);
 
