@@ -1,7 +1,7 @@
 [package]
 name = "tracy-client"
-version = "0.16.4" # AUTO-BUMP
-authors.workspace = true
+version = "0.16.5" # AUTO-BUMP
+authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
