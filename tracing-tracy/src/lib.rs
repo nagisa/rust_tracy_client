@@ -26,9 +26,10 @@
 //! use tracing_subscriber::layer::SubscriberExt;
 //!
 //! tracing::subscriber::set_global_default(
-//!     tracing_subscriber::registry()
-//!         .with(tracing_tracy::TracyLayer::new()),
-//! ).expect("set up the subscriber");
+//!     tracing_subscriber::registry().with(
+//!         tracing_tracy::TracyLayer::new(tracing_tracy::DynamicConfig::new())
+//!     )
+//! ).expect("setup tracy layer");
 //! ```
 //!
 //! # Important note
@@ -49,6 +50,8 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
+use client::{Client, Span};
+pub use config::{Config, DynamicConfig};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt::Write, mem};
 use tracing_core::{
@@ -56,17 +59,17 @@ use tracing_core::{
     span::{Attributes, Id, Record},
     Event, Subscriber,
 };
-use tracing_subscriber::fmt::format::{DefaultFields, FormatFields};
+use tracing_subscriber::fmt::format::FormatFields;
 use tracing_subscriber::{
-    fmt::FormattedFields,
     layer::{Context, Layer},
     registry,
 };
-
-use client::{Client, Span};
 use utils::{StrCache, StrCacheGuard, VecCell};
 
 pub use client;
+mod config;
+
+type TracyFields<C> = tracing_subscriber::fmt::FormattedFields<<C as Config>::Formatter>;
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
@@ -74,68 +77,37 @@ thread_local! {
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
+///
+/// # Examples
+///
+/// ```rust
+/// use tracing_subscriber::layer::SubscriberExt;
+/// tracing::subscriber::set_global_default(
+///     tracing_subscriber::registry().with(
+///         tracing_tracy::TracyLayer::new(tracing_tracy::DynamicConfig::new())
+///     )
+/// ).expect("setup tracy layer");
+/// ```
 #[derive(Clone)]
-pub struct TracyLayer<F = DefaultFields> {
-    fmt: F,
-    stack_depth: u16,
-    fields_in_zone_name: bool,
+pub struct TracyLayer<C = DynamicConfig> {
+    config: C,
     client: Client,
 }
 
-impl TracyLayer<DefaultFields> {
+impl<C> TracyLayer<C> {
     /// Create a new `TracyLayer`.
     ///
     /// Defaults to collecting stack traces.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(config: C) -> Self {
         Self {
-            fmt: DefaultFields::default(),
-            stack_depth: 0,
-            fields_in_zone_name: true,
+            config,
             client: Client::start(),
         }
     }
 }
 
-impl<F> TracyLayer<F> {
-    /// Specify the maximum number of stack frames that will be collected.
-    ///
-    /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
-    /// every instrumentation point. Specifying 0 frames (which is the default) will disable stack
-    /// trace collection.
-    ///
-    /// Defaults to `0`.
-    #[must_use]
-    pub const fn with_stackdepth(mut self, stack_depth: u16) -> Self {
-        self.stack_depth = stack_depth;
-        self
-    }
-
-    /// Specify whether or not to include tracing span fields in the tracy zone name, or to emit
-    /// them as zone text.
-    ///
-    /// The former enables zone analysis along unique span field invocations, while the latter
-    /// aggregates every invocation of a given span into a single zone, irrespective of field
-    /// values.
-    ///
-    /// Defaults to `true`.
-    #[must_use]
-    pub const fn with_fields_in_zone_name(mut self, fields_in_zone_name: bool) -> Self {
-        self.fields_in_zone_name = fields_in_zone_name;
-        self
-    }
-
-    /// Use a custom field formatting implementation.
-    #[must_use]
-    pub fn with_formatter<Fmt>(self, fmt: Fmt) -> TracyLayer<Fmt> {
-        TracyLayer {
-            fmt,
-            stack_depth: self.stack_depth,
-            fields_in_zone_name: self.fields_in_zone_name,
-            client: self.client,
-        }
-    }
-
+impl<C: Config> TracyLayer<C> {
     fn truncate_span_to_length<'a>(
         &self,
         data: &'a str,
@@ -162,7 +134,7 @@ impl<F> TracyLayer<F> {
                 max_len -= 1;
             }
             self.client
-                .color_message(error_msg, 0xFF000000, self.stack_depth);
+                .color_message(error_msg, 0xFF000000, self.config.stack_depth());
             &data[..max_len]
         } else {
             data
@@ -172,7 +144,7 @@ impl<F> TracyLayer<F> {
 
 impl Default for TracyLayer {
     fn default() -> Self {
-        Self::new()
+        Self::new(DynamicConfig::new())
     }
 }
 
@@ -196,19 +168,24 @@ thread_local! {
     static CACHE: StrCache = const { StrCache::new() };
 }
 
-impl<S, F> Layer<S> for TracyLayer<F>
+impl<S, C> Layer<S> for TracyLayer<C>
 where
     S: Subscriber + for<'a> registry::LookupSpan<'a>,
-    F: for<'writer> FormatFields<'writer> + 'static,
+    C: Config + 'static,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
         let Some(span) = ctx.span(id) else { return };
 
         let mut extensions = span.extensions_mut();
-        if extensions.get_mut::<FormattedFields<F>>().is_none() {
+        if extensions.get_mut::<TracyFields<C>>().is_none() {
             let mut fields =
-                FormattedFields::<F>::new(CACHE.with(|cache| cache.acquire().into_inner()));
-            if self.fmt.format_fields(fields.as_writer(), attrs).is_ok() {
+                TracyFields::<C>::new(CACHE.with(|cache| cache.acquire().into_inner()));
+            if self
+                .config
+                .formatter()
+                .format_fields(fields.as_writer(), attrs)
+                .is_ok()
+            {
                 extensions.insert(fields);
             }
         }
@@ -218,12 +195,17 @@ where
         let Some(span) = ctx.span(id) else { return };
 
         let mut extensions = span.extensions_mut();
-        if let Some(fields) = extensions.get_mut::<FormattedFields<F>>() {
-            let _ = self.fmt.add_fields(fields, values);
+        if let Some(fields) = extensions.get_mut::<TracyFields<C>>() {
+            let _ = self.config.formatter().add_fields(fields, values);
         } else {
             let mut fields =
-                FormattedFields::<F>::new(CACHE.with(|cache| cache.acquire().into_inner()));
-            if self.fmt.format_fields(fields.as_writer(), values).is_ok() {
+                TracyFields::<C>::new(CACHE.with(|cache| cache.acquire().into_inner()));
+            if self
+                .config
+                .formatter()
+                .format_fields(fields.as_writer(), values)
+                .is_ok()
+            {
                 extensions.insert(fields);
             }
         }
@@ -246,7 +228,7 @@ where
                         visitor.dest,
                         "event message is too long and was truncated",
                     ),
-                    self.stack_depth,
+                    self.config.stack_depth(),
                 );
             }
             if visitor.frame_mark {
@@ -259,7 +241,7 @@ where
         let Some(span) = ctx.span(id) else { return };
 
         let extensions = span.extensions();
-        let fields = extensions.get::<FormattedFields<F>>();
+        let fields = extensions.get::<TracyFields<C>>();
         let stack_frame = {
             let metadata = span.metadata();
             let file = metadata.file().unwrap_or("<not available>");
@@ -276,7 +258,7 @@ where
                         "",
                         file,
                         line,
-                        self.stack_depth,
+                        self.config.stack_depth(),
                     ),
                     id.into_u64(),
                 )
@@ -285,7 +267,7 @@ where
             match fields {
                 None => span(metadata.name()),
                 Some(fields) if fields.is_empty() => span(metadata.name()),
-                Some(fields) if self.fields_in_zone_name => CACHE.with(|cache| {
+                Some(fields) if self.config.format_fields_in_zone_name() => CACHE.with(|cache| {
                     let mut buf = cache.acquire();
                     let _ = write!(buf, "{}{{{}}}", metadata.name(), fields.fields);
                     span(&buf)
@@ -316,7 +298,7 @@ where
                     "Tracing spans exited out of order! \
                         Trace may not be accurate for this span stack.",
                     0xFF000000,
-                    self.stack_depth,
+                    self.config.stack_depth(),
                 );
             }
             drop(span);
@@ -324,7 +306,7 @@ where
             self.client.color_message(
                 "Exiting a tracing span, but got nothing on the tracy span stack!",
                 0xFF000000,
-                self.stack_depth,
+                self.config.stack_depth(),
             );
         }
     }
@@ -332,7 +314,7 @@ where
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
         let Some(span) = ctx.span(&id) else { return };
 
-        if let Some(fields) = span.extensions_mut().get_mut::<FormattedFields<F>>() {
+        if let Some(fields) = span.extensions_mut().get_mut::<TracyFields<C>>() {
             let buf = mem::take(&mut fields.fields);
             CACHE.with(|cache| drop(StrCacheGuard::new(cache, buf)));
         };
