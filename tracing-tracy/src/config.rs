@@ -1,34 +1,46 @@
 use client::Client;
 use tracing_subscriber::fmt::format::DefaultFields;
 use tracing_subscriber::fmt::FormatFields;
+#[allow(unused_imports)] // for documentation.
+use super::TracyLayer;
 
 /// Configuration of the [`TracyLayer`] behaviour.
 ///
-/// For most users [`DynamicConfig`] is going to be a good default option, however advanced users
-/// can implement this trait manually to achieve better performance through constant evaluation,
-/// to override the formatter used or to otherwise modify the behaviour of `TracyLayer` in ways
-/// that are not exposed via the `DynamicConfig` type.
+/// For most users [`DefaultConfig`] is going to be a good default choice, however advanced users
+/// can implement this trait manually to override the formatter used or to otherwise modify the
+/// behaviour of the `TracyLayer`.
 ///
 /// # Examples
 ///
-/// ## Implementation with compile-time configuration
-///
 /// ```
-/// #[derive(Default)]
-/// struct ConstantTracyConfig {
-///     formatter: tracing_subscriber::fmt::format::DefaultFields,
-/// }
+/// use tracing_subscriber::fmt::format::DefaultFields;
 ///
-/// impl tracing_tracy::Config for ConstantTracyConfig {
-///     type Formatter = tracing_subscriber::fmt::format::DefaultFields;
-///     fn formatter(&self) -> &Self::Formatter { &self.formatter }
-///     fn stack_depth(&self) -> u16 { 0 } // Same as the default trait impl.
-///     fn format_fields_in_zone_name(&self) -> bool { true } // Same as the default trait impl.
+/// struct TracyLayerConfig {
+///     fmt: DefaultFields,
+/// }
+/// impl tracing_tracy::Config for TracyLayerConfig {
+///     type Formatter = DefaultFields;
+///     fn formatter(&self) -> &Self::Formatter {
+///         &self.fmt
+///     }
+///     // The boilerplate ends here
+///
+///     /// Collect 32 frames in stack traces.
+///     fn stack_depth(&self) -> u16 {
+///         32
+///     }
+///
+///     /// Do not format in fields into zone names.
+///     fn format_fields_in_zone_name(&self) -> bool {
+///         false
+///     }
+///
+///     // etc.
 /// }
 /// ```
 ///
-/// With this sort of setup the compiler will be able to inline calls to `stack_depth` and
-/// `format_fields_in_zone_name` and optimize accordingly.
+/// With this configuration `TracyLayer` will collect some call stacks and the formatting of the
+/// zone names is different from the `DefaultConfig`.
 pub trait Config {
     type Formatter: for<'writer> FormatFields<'writer> + 'static;
 
@@ -78,66 +90,16 @@ pub trait Config {
     }
 }
 
-/// A type that implements the [`Config`] trait with runtime-adjustable values.
+/// A default configuration of the [`TracyLayer`].
 ///
-/// Ues the [`tracing_subscriber`] [`DefaultFields`] formatter. If not appropriate, consider
-/// implementing the `Config` trait yourself.
-pub struct DynamicConfig {
-    fmt: DefaultFields,
-    stack_depth: u16,
-    fields_in_zone_name: bool,
-}
+/// This type does not allow for any adjustment of the configuration. In order to customize
+/// the behaviour of the layer implement the [`Config`] trait for your own type.
+#[derive(Default)]
+pub struct DefaultConfig(DefaultFields);
 
-impl DynamicConfig {
-    /// Create a new implementation of `Config` that permits non-constant configuration.
-    #[must_use]
-    pub fn new() -> Self {
-        DynamicConfig {
-            fmt: DefaultFields::new(),
-            stack_depth: 0,
-            fields_in_zone_name: true,
-        }
-    }
-
-    /// Specify the maximum number of stack frames that will be collected.
-    ///
-    /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
-    /// every instrumentation point. Specifying 0 frames will disable stack trace collection.
-    ///
-    /// Defaults to `0`.
-    #[must_use]
-    pub const fn with_stack_depth(mut self, stack_depth: u16) -> Self {
-        self.stack_depth = stack_depth;
-        self
-    }
-
-    /// Specify whether or not to include tracing span fields in the tracy zone name, or to emit
-    /// them as zone text.
-    ///
-    /// The former enables zone analysis along unique span field invocations, while the latter
-    /// aggregates every invocation of a given span into a single zone, irrespective of field
-    /// values.
-    ///
-    /// Defaults to `true`.
-    #[must_use]
-    pub const fn with_fields_in_zone_name(mut self, fields_in_zone_name: bool) -> Self {
-        self.fields_in_zone_name = fields_in_zone_name;
-        self
-    }
-}
-
-impl Config for DynamicConfig {
+impl Config for DefaultConfig {
     type Formatter = DefaultFields;
-
     fn formatter(&self) -> &Self::Formatter {
-        &self.fmt
-    }
-
-    fn stack_depth(&self) -> u16 {
-        self.stack_depth
-    }
-
-    fn format_fields_in_zone_name(&self) -> bool {
-        self.fields_in_zone_name
+        &self.0
     }
 }

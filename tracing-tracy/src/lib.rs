@@ -49,7 +49,7 @@
 #![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
 use client::{Client, Span};
-pub use config::{Config, DynamicConfig};
+pub use config::{Config, DefaultConfig};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt::Write, mem};
 use tracing_core::{
@@ -85,7 +85,7 @@ thread_local! {
 /// ).expect("setup tracy layer");
 /// ```
 #[derive(Clone)]
-pub struct TracyLayer<C = DynamicConfig> {
+pub struct TracyLayer<C = DefaultConfig> {
     config: C,
     client: Client,
 }
@@ -139,7 +139,7 @@ impl<C: Config> TracyLayer<C> {
 
 impl Default for TracyLayer {
     fn default() -> Self {
-        Self::new(DynamicConfig::new())
+        Self::new(DefaultConfig::default())
     }
 }
 
