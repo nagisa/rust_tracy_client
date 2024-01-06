@@ -104,7 +104,7 @@ fn span_with_fields() {
 
 pub(crate) fn test() {
     tracing::subscriber::set_global_default(
-        tracing_subscriber::registry().with(TracyLayer::new(DynamicConfig::new())),
+        tracing_subscriber::registry().with(TracyLayer::default()),
     )
     .expect("setup the subscriber");
     it_works();
@@ -158,7 +158,8 @@ fn benchmark_message(c: &mut Criterion) {
     });
 
     c.bench_function("event/no_callstack", |bencher| {
-        let layer = tracing_subscriber::registry().with(TracyLayer::new(DynamicConfig::new().with_stack_depth(0)));
+        let layer = tracing_subscriber::registry()
+            .with(TracyLayer::new(DynamicConfig::new().with_stack_depth(0)));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");

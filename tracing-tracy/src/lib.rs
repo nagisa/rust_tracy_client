@@ -26,9 +26,7 @@
 //! use tracing_subscriber::layer::SubscriberExt;
 //!
 //! tracing::subscriber::set_global_default(
-//!     tracing_subscriber::registry().with(
-//!         tracing_tracy::TracyLayer::new(tracing_tracy::DynamicConfig::new())
-//!     )
+//!     tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default())
 //! ).expect("setup tracy layer");
 //! ```
 //!
@@ -83,9 +81,7 @@ thread_local! {
 /// ```rust
 /// use tracing_subscriber::layer::SubscriberExt;
 /// tracing::subscriber::set_global_default(
-///     tracing_subscriber::registry().with(
-///         tracing_tracy::TracyLayer::new(tracing_tracy::DynamicConfig::new())
-///     )
+///     tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default())
 /// ).expect("setup tracy layer");
 /// ```
 #[derive(Clone)]
