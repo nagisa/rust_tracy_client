@@ -103,6 +103,8 @@ impl<F> TracyLayer<F> {
     /// Note that enabling callstack collection can and will introduce a non-trivial overhead at
     /// every instrumentation point. Specifying 0 frames (which is the default) will disable stack
     /// trace collection.
+    ///
+    /// Defaults to `0`.
     #[must_use]
     pub const fn with_stackdepth(mut self, stack_depth: u16) -> Self {
         self.stack_depth = stack_depth;
@@ -116,7 +118,7 @@ impl<F> TracyLayer<F> {
     /// aggregates every invocation of a given span into a single zone, irrespective of field
     /// values.
     ///
-    /// Defaults to true.
+    /// Defaults to `true`.
     #[must_use]
     pub const fn with_fields_in_zone_name(mut self, fields_in_zone_name: bool) -> Self {
         self.fields_in_zone_name = fields_in_zone_name;
@@ -185,7 +187,7 @@ static MAX_CACHE_SIZE: AtomicUsize = AtomicUsize::new(8192);
 /// no guarantees on the maximum memory used by tracing-tracy. Notably, changes to this value
 /// are eventually consistent, i.e. caches are not flushed upon an update.
 ///
-/// Defaults to `8192`.
+/// Defaults to `8192` per thread.
 pub fn set_max_cache_size(max_bytes_used_per_thread: usize) {
     MAX_CACHE_SIZE.store(max_bytes_used_per_thread, Ordering::Relaxed);
 }

@@ -195,7 +195,7 @@ macro_rules! set_thread_name {
 
 /// A profiling wrapper around another allocator.
 ///
-/// See documentation for [`std::alloc`](std::alloc) for more information about global allocators.
+/// See documentation for [`std::alloc`] for more information about global allocators.
 ///
 /// Note that this wrapper will start up the client on the first allocation, if not enabled
 /// already.

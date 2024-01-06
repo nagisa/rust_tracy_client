@@ -7,7 +7,6 @@ members = [
 resolver = "2"
 
 [workspace.package]
-authors = ["Simonas Kazlauskas <tracy-client-sys@kazlauskas.me>"]
 edition = "2021"
 repository = "https://github.com/nagisa/rust_tracy_client"
 homepage = "https://github.com/nagisa/rust_tracy_client"
