@@ -133,8 +133,7 @@ impl<C: Config> TracyLayer<C> {
             while !data.is_char_boundary(max_len) {
                 max_len -= 1;
             }
-            self.client
-                .color_message(error_msg, 0xFF000000, self.config.stack_depth());
+            self.config.on_error(&self.client, error_msg);
             &data[..max_len]
         } else {
             data
@@ -294,19 +293,17 @@ where
 
         if let Some((span, span_id)) = stack_frame {
             if id.into_u64() != span_id {
-                self.client.color_message(
+                self.config.on_error(
+                    &self.client,
                     "Tracing spans exited out of order! \
-                        Trace may not be accurate for this span stack.",
-                    0xFF000000,
-                    self.config.stack_depth(),
+                        Trace might not be accurate for this span stack.",
                 );
             }
             drop(span);
         } else {
-            self.client.color_message(
+            self.config.on_error(
+                &self.client,
                 "Exiting a tracing span, but got nothing on the tracy span stack!",
-                0xFF000000,
-                self.config.stack_depth(),
             );
         }
     }

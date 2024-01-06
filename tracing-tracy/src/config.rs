@@ -56,6 +56,26 @@ pub trait Config {
     fn format_fields_in_zone_name(&self) -> bool {
         true
     }
+
+    /// Apply handling for errors detected by the [`TracyLayer`].
+    ///
+    /// Fundamentally the way the tracing crate and the Tracy profiler work are somewhat
+    /// incompatible in certain ways. For instance, a [`tracing::Span`] can be created on one
+    /// thread and moved to another, where it is cleaned up. Tracy on the other hand expects that
+    /// its eqvivalent concept of zone remains entirely within a thread.
+    ///
+    /// Another example a limitation in `Tracy` where the message length or zone name cannot exceed
+    /// a certain (low) limit of bytes.
+    ///
+    /// Although `tracing_tracy` does it best to paper over these sorts of differences, it can’t
+    /// always make them invisible. In certain cases detecting these sorts of issues is
+    /// straightforward, and it is when `tracing_tracy` will invoke this method to enable users to
+    /// report the issues in whatever way they wish to.
+    ///
+    /// By default a message coloured in red is emitted to the tracy client.
+    fn on_error(&self, client: &Client, error: &'static str) {
+        client.color_message(error, 0xFF000000, self.stack_depth());
+    }
 }
 
 /// A type that implements the [`Config`] trait with runtime-adjustable values.
