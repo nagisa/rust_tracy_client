@@ -1,4 +1,6 @@
-use super::{DynamicConfig, TracyLayer};
+use crate::{Config, DefaultConfig};
+
+use super::TracyLayer;
 use criterion::Criterion;
 use futures::future::join_all;
 use tracing::{debug, event, info, info_span, span, Level};
@@ -122,10 +124,22 @@ pub(crate) fn test() {
     runtime.block_on(async_futures());
 }
 
+#[derive(Default)]
+struct CallstackConfig(DefaultConfig);
+impl Config for CallstackConfig {
+    type Formatter = <DefaultConfig as Config>::Formatter;
+    fn formatter(&self) -> &Self::Formatter {
+        self.0.formatter()
+    }
+    fn stack_depth(&self) -> u16 {
+        100
+    }
+}
+
 fn benchmark_span(c: &mut Criterion) {
     c.bench_function("span/callstack", |bencher| {
-        let layer = tracing_subscriber::registry()
-            .with(TracyLayer::new(DynamicConfig::new().with_stack_depth(100)));
+        let layer =
+            tracing_subscriber::registry().with(TracyLayer::new(CallstackConfig::default()));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -135,8 +149,7 @@ fn benchmark_span(c: &mut Criterion) {
     });
 
     c.bench_function("span/no_callstack", |bencher| {
-        let layer = tracing_subscriber::registry()
-            .with(TracyLayer::new(DynamicConfig::new().with_stack_depth(0)));
+        let layer = tracing_subscriber::registry().with(TracyLayer::default());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 let _span =
@@ -148,8 +161,8 @@ fn benchmark_span(c: &mut Criterion) {
 
 fn benchmark_message(c: &mut Criterion) {
     c.bench_function("event/callstack", |bencher| {
-        let layer = tracing_subscriber::registry()
-            .with(TracyLayer::new(DynamicConfig::new().with_stack_depth(100)));
+        let layer =
+            tracing_subscriber::registry().with(TracyLayer::new(CallstackConfig::default()));
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");
@@ -158,8 +171,7 @@ fn benchmark_message(c: &mut Criterion) {
     });
 
     c.bench_function("event/no_callstack", |bencher| {
-        let layer = tracing_subscriber::registry()
-            .with(TracyLayer::new(DynamicConfig::new().with_stack_depth(0)));
+        let layer = tracing_subscriber::registry().with(TracyLayer::default());
         tracing::subscriber::with_default(layer, || {
             bencher.iter(|| {
                 tracing::error!(field1 = "first", field2 = "second", "message");
