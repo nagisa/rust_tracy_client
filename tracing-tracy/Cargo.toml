@@ -46,6 +46,8 @@ only-localhost = ["client/only-localhost"]
 sampling = ["client/sampling"]
 system-tracing = ["client/system-tracing"]
 callstack-inlines = ["client/callstack-inlines"]
+manual-lifetime = ["client/manual-lifetime"]
+delayed-init = ["client/delayed-init"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]

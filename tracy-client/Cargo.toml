@@ -39,7 +39,6 @@ path = "../tracy-client-sys"
 package = "tracy-client-sys"
 version = ">=0.21.2, <0.23.0" # AUTO-UPDATE
 default-features = false
-features = ["manual-lifetime", "delayed-init"]
 
 [target.'cfg(loom)'.dependencies.loom]
 version = "0.7"
@@ -60,6 +59,8 @@ only-localhost = ["sys/only-localhost"]
 sampling = ["sys/sampling"]
 system-tracing = ["sys/system-tracing"]
 callstack-inlines = ["sys/callstack-inlines"]
+manual-lifetime = ["sys/manual-lifetime"]
+delayed-init = ["sys/delayed-init"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]
