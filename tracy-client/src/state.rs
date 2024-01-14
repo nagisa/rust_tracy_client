@@ -1,4 +1,5 @@
 use crate::Client;
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 use std::sync::atomic::Ordering;
 
 /// Enabling `Tracy` when it is already enabled, or Disabling when it is already disabled will
@@ -26,7 +27,7 @@ use std::sync::atomic::Ordering;
 ///
 /// All that seems like a major pain to implement, and so we’ll punt on disabling entirely until
 /// somebody comes with a good use-case warranting that sort of complexity.
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 #[cfg(not(loom))]
 static CLIENT_STATE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 #[cfg(loom)]
@@ -35,16 +36,16 @@ loom::lazy_static! {
         loom::sync::atomic::AtomicUsize::new(0);
 }
 
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 const STATE_STEP: usize = 1; // Move forward by 1 step in the FSM
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 const STATE_DISABLED: usize = 0;
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 const STATE_ENABLING: usize = STATE_DISABLED + STATE_STEP;
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 const STATE_ENABLED: usize = STATE_ENABLING + STATE_STEP;
 
-#[cfg(feature = "enable")]
+#[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 #[inline(always)]
 fn spin_loop() {
     #[cfg(loom)]
@@ -64,7 +65,10 @@ impl Client {
     /// The underlying client implementation will be started up only if it wasn't already running
     /// yet.
     ///
-    /// Note that there currently isn't a mechanism to stop the client once it has been started.
+    /// Note that when the `manual-lifetime` feature is used, it is a responsibility of the user
+    /// to stop `tracy` using the [`sys::___tracy_shutdown_profiler`] function. Keep in mind that
+    /// at the time this function is called there can be no other invocations to the tracy
+    /// profiler, even from other threads (or you may get a crash!)
     ///
     /// # Example
     ///
@@ -75,7 +79,7 @@ impl Client {
     /// // }
     /// ```
     pub fn start() -> Self {
-        #[cfg(feature = "enable")]
+        #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
         {
             let mut old_state = CLIENT_STATE.load(Ordering::Relaxed);
             loop {
@@ -120,7 +124,7 @@ impl Client {
                 }
             }
         }
-        #[cfg(not(feature = "enable"))]
+        #[cfg(not(all(feature = "enable", feature = "manual-lifetime")))]
         Client(())
     }
 
@@ -136,10 +140,15 @@ impl Client {
 
     /// Is the client already running?
     pub fn is_running() -> bool {
-        #[cfg(feature = "enable")]
-        return CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED;
+        #![allow(unreachable_code)]
         #[cfg(not(feature = "enable"))]
-        return true;
+        return true; // If the client is disabled, produce a "no-op" one so that users don’t need
+                     // to wory about conditional use of the instrumentation in their own code.
+        #[cfg(not(feature = "manual-lifetime"))]
+        return true; // The client is started in life-before-main (or upon first use in case of
+                     // `delayed-init`
+        #[cfg(feature = "manual-lifetime")]
+        return CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED;
     }
 }
 
