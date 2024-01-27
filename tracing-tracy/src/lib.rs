@@ -223,7 +223,7 @@ where
                         visitor.dest,
                         "event message is too long and was truncated",
                     ),
-                    self.config.stack_depth(),
+                    self.config.stack_depth(event.metadata()),
                 );
             }
             if visitor.frame_mark {
@@ -253,7 +253,7 @@ where
                         "",
                         file,
                         line,
-                        self.config.stack_depth(),
+                        self.config.stack_depth(metadata),
                     ),
                     id.into_u64(),
                 )

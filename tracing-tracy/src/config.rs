@@ -1,10 +1,8 @@
 use client::Client;
 use tracing_subscriber::fmt::format::DefaultFields;
 use tracing_subscriber::fmt::FormatFields;
-#[allow(unused_imports)] // for documentation.
-use super::TracyLayer;
 
-/// Configuration of the [`TracyLayer`] behaviour.
+/// Configuration of the [`TracyLayer`](super::TracyLayer) behaviour.
 ///
 /// For most users [`DefaultConfig`] is going to be a good default choice, however advanced users
 /// can implement this trait manually to override the formatter used or to otherwise modify the
@@ -26,11 +24,11 @@ use super::TracyLayer;
 ///     // The boilerplate ends here
 ///
 ///     /// Collect 32 frames in stack traces.
-///     fn stack_depth(&self) -> u16 {
+///     fn stack_depth(&self, _: &tracing::Metadata) -> u16 {
 ///         32
 ///     }
 ///
-///     /// Do not format in fields into zone names.
+///     /// Do not format fields into zone names.
 ///     fn format_fields_in_zone_name(&self) -> bool {
 ///         false
 ///     }
@@ -53,7 +51,8 @@ pub trait Config {
     /// every instrumentation point. Specifying 0 frames will disable stack trace collection.
     ///
     /// Default implementation returns `0`.
-    fn stack_depth(&self) -> u16 {
+    fn stack_depth(&self, metadata: &tracing_core::Metadata<'_>) -> u16 {
+        let _ = metadata;
         0
     }
 
@@ -69,7 +68,7 @@ pub trait Config {
         true
     }
 
-    /// Apply handling for errors detected by the [`TracyLayer`].
+    /// Apply handling for errors detected by the [`TracyLayer`](super::TracyLayer).
     ///
     /// Fundamentally the way the tracing crate and the Tracy profiler work are somewhat
     /// incompatible in certain ways. For instance, a [`tracing::Span`] can be created on one
@@ -86,11 +85,11 @@ pub trait Config {
     ///
     /// By default a message coloured in red is emitted to the tracy client.
     fn on_error(&self, client: &Client, error: &'static str) {
-        client.color_message(error, 0xFF000000, self.stack_depth());
+        client.color_message(error, 0xFF000000, 0);
     }
 }
 
-/// A default configuration of the [`TracyLayer`].
+/// A default configuration of the [`TracyLayer`](super::TracyLayer).
 ///
 /// This type does not allow for any adjustment of the configuration. In order to customize
 /// the behaviour of the layer implement the [`Config`] trait for your own type.
