@@ -131,7 +131,7 @@ impl Config for CallstackConfig {
     fn formatter(&self) -> &Self::Formatter {
         self.0.formatter()
     }
-    fn stack_depth(&self) -> u16 {
+    fn stack_depth(&self, _: &tracing_core::Metadata<'_>) -> u16 {
         100
     }
 }
