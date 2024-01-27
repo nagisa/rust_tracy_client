@@ -40,7 +40,7 @@ only-localhost = []
 only-ipv4 = []
 timer-fallback = []
 ondemand = []
-manual-lifetime = []
+manual-lifetime = ["delayed-init"]
 delayed-init = []
 callstack-inlines = []
 
