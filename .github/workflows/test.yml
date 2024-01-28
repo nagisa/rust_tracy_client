@@ -30,3 +30,12 @@ jobs:
       - run: cargo test ${{ matrix.flags }} -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: rustup install nightly --profile=minimal
+      - run: rustup default nightly
+      - run: cargo rustdoc --all-features -p tracy-client-sys -Zunstable-options --config 'build.rustdocflags=["--cfg", "tracy_client_sys_docs", "-D", "rustdoc::broken_intra_doc_links"]'
+      - run: cargo rustdoc --all-features -p tracy-client -Zunstable-options --config 'build.rustdocflags=["--cfg", "tracy_client_docs", "-D", "rustdoc::broken_intra_doc_links"]'
+      - run: cargo rustdoc --all-features -p tracing-tracy -Zunstable-options --config 'build.rustdocflags=["--cfg", "tracing_tracy_docs", "-D", "rustdoc::broken_intra_doc_links"]'

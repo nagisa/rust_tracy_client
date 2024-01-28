@@ -52,3 +52,4 @@ flush-on-exit = ["client/flush-on-exit"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]
+all-features = true

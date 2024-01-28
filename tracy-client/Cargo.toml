@@ -65,3 +65,4 @@ flush-on-exit = ["sys/flush-on-exit"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]
+all-features = true
