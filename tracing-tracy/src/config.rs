@@ -71,7 +71,7 @@ pub trait Config {
     /// Apply handling for errors detected by the [`TracyLayer`](super::TracyLayer).
     ///
     /// Fundamentally the way the tracing crate and the Tracy profiler work are somewhat
-    /// incompatible in certain ways. For instance, a [`tracing::Span`] can be created on one
+    /// incompatible in certain ways. For instance, a `tracing::Span` can be created on one
     /// thread and moved to another, where it is cleaned up. Tracy on the other hand expects that
     /// its eqvivalent concept of zone remains entirely within a thread.
     ///

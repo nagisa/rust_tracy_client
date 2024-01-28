@@ -46,4 +46,5 @@ callstack-inlines = []
 flush-on-exit = []
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--cfg", "tracy_client_sys_docs"]
