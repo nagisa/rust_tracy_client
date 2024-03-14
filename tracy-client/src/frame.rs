@@ -114,6 +114,30 @@ impl Client {
         }
         Frame(self.clone(), name)
     }
+
+    /// Emits an image of a frame.
+    ///
+    /// The following restrictions apply:
+    /// - The image must be in RGBA format.
+    /// - The image width and height must be divisible by four.
+    /// - The image data must be less than 256 KB, and should be as small as
+    ///   possible.
+    ///
+    /// The offset indicates how many frames in the past the image was captured.
+    /// For example, an offset of 1 would associate the image with the previous
+    /// call to [`frame_mark`](Client::frame_mark).
+    ///
+    /// The `flip` parameter indicates that the image should be flipped before
+    /// displaying, for example if the image is an OpenGL texture.
+    pub fn frame_image(&self, image: &[u8], width: u16, height: u16, offset: u8, flip: bool) {
+        #[cfg(feature = "enable")]
+        unsafe {
+            // SAFE: Tracy copies the data before returning.
+            let ptr = image.as_ptr();
+
+            let () = sys::___tracy_emit_frame_image(ptr.cast(), width, height, offset, flip as i32);
+        }
+    }
 }
 
 /// Construct a [`FrameName`].
@@ -148,6 +172,13 @@ pub fn frame_mark() {
     Client::running()
         .expect("frame_mark! without a running Client")
         .frame_mark();
+}
+
+/// Convenience shortcut for [`Client::frame_image`] on the current client.
+pub fn frame_image(image: &[u8], width: u16, height: u16, offset: u8, flip: bool) {
+    Client::running()
+        .expect("frame_image without a running Client")
+        .frame_image(image, width, height, offset, flip);
 }
 
 /// Convenience macro for [`Client::secondary_frame_mark`] on the current client.
