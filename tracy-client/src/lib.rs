@@ -28,7 +28,7 @@
 #![doc = include_str!("../FEATURES.mkd")]
 #![cfg_attr(tracy_client_docs, feature(doc_auto_cfg))]
 
-pub use crate::frame::{frame_mark, Frame, FrameName};
+pub use crate::frame::{frame_image, frame_mark, Frame, FrameName};
 pub use crate::gpu::{
     GpuContext, GpuContextCreationError, GpuContextType, GpuSpan, GpuSpanCreationError,
 };
