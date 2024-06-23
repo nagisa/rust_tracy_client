@@ -44,6 +44,7 @@ manual-lifetime = ["delayed-init"]
 delayed-init = []
 callstack-inlines = []
 flush-on-exit = []
+demangle = []
 
 [package.metadata.docs.rs]
 all-features = true

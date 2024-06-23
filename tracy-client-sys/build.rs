@@ -42,6 +42,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_FLUSH_ON_EXIT").is_some() {
         c.define("TRACY_NO_EXIT", None);
     }
+    if std::env::var_os("CARGO_FEATURE_DEMANGLE").is_some() {
+        c.define("TRACY_DEMANGLE", None);
+    }
 
     // Note: these are inversed and check for `is_none`!
     if std::env::var_os("CARGO_FEATURE_SYSTEM_TRACING").is_none() {

@@ -297,3 +297,40 @@ pub(crate) const fn adjust_stack_depth(depth: u16) -> u16 {
         depth
     }
 }
+
+/// The custom demangling function.
+#[cfg(feature = "demangle-impl")]
+#[no_mangle]
+#[allow(static_mut_refs)]
+unsafe extern "C" fn ___tracy_demangle(
+    mangled: *const std::ffi::c_char,
+) -> *const std::ffi::c_char {
+    use std::fmt::Write;
+    use std::ptr::null;
+
+    // https://github.com/wolfpld/tracy/blob/d4a4b623968d99a7403cd93bae5247ed0735680a/public/client/TracyCallstack.cpp#L57-L67
+    // > The demangling function is responsible for managing memory for this string.
+    // > It is expected that it will be internally reused.
+    // > When a call to ___tracy_demangle is made, previous contents of the string memory
+    // > do not need to be preserved.
+    static mut BUFFER: String = String::new();
+
+    if mangled.is_null() {
+        return null();
+    }
+    let cstr = unsafe { std::ffi::CStr::from_ptr(mangled) };
+    let Ok(str) = cstr.to_str() else {
+        return null();
+    };
+    let Ok(demangled) = rustc_demangle::try_demangle(str) else {
+        return null();
+    };
+    let buffer = unsafe { &mut BUFFER };
+    let prev_len = buffer.len();
+    // Use `:#` formatting to elide the hash.
+    if write!(buffer, "{demangled:#}\0").is_err() {
+        buffer.truncate(prev_len);
+        return null();
+    }
+    buffer[prev_len..].as_ptr().cast()
+}
