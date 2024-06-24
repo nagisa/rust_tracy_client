@@ -31,13 +31,9 @@
   `TRACY_NO_CALLSTACK_INLINES` define.
 * `delayed-init` – initializes trace structures upon a first request, rather than at load time.
   Corresponds to the `TRACY_DELAYED_INIT` define.
-* `demangle` - requires that the demangling function (`___tracy_demangle`) be defined by the user.
-  A default one is provided with the `demangle-impl` feature.
+* `demangle` - requires that the demangling function be defined by the user.
+  See the `register_demangler!` macro for more details.
   Corresponds to the `TRACY_DEMANGLE` define.
-* `demangle-impl` - provides a custom demangling function to demangle Rust symbols.
-  The implementation is provided in `tracy-client` using [`rustc-demangle`].
 
 Refer to this package's `Cargo.toml` for the list of the features enabled by default. Refer to
 the `Tracy` manual for more information on the implications of each feature.
-
-[`rustc-demangle`]: https://crates.io/crates/rustc-demangle
