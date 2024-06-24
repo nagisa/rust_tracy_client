@@ -47,7 +47,7 @@ version = "0.7"
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines", "demangle" ]
+            "broadcast", "callstack-inlines" ]
 broadcast = ["sys/broadcast"]
 code-transfer = ["sys/code-transfer"]
 context-switch-tracing = ["sys/context-switch-tracing"]
@@ -63,8 +63,7 @@ callstack-inlines = ["sys/callstack-inlines"]
 manual-lifetime = ["sys/manual-lifetime"]
 delayed-init = ["sys/delayed-init"]
 flush-on-exit = ["sys/flush-on-exit"]
-demangle = ["sys/demangle"]
-demangle-impl = ["demangle", "dep:rustc-demangle"]
+demangle = ["sys/demangle", "dep:rustc-demangle"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]
