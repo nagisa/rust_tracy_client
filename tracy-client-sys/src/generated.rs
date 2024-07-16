@@ -522,7 +522,55 @@ fn bindgen_test_layout____tracy_gpu_calibration_data() {
         )
     );
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ___tracy_gpu_time_sync_data {
+    pub gpuTime: i64,
+    pub context: u8,
+}
+#[test]
+fn bindgen_test_layout____tracy_gpu_time_sync_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_time_sync_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_time_sync_data>(),
+        16usize,
+        concat!("Size of: ", stringify!(___tracy_gpu_time_sync_data))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_time_sync_data>(),
+        8usize,
+        concat!("Alignment of ", stringify!(___tracy_gpu_time_sync_data))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).gpuTime) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_time_sync_data),
+            "::",
+            stringify!(gpuTime)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(___tracy_gpu_time_sync_data),
+            "::",
+            stringify!(context)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __tracy_lockable_context_data {
+    _unused: [u8; 0],
+}
 type TracyCZoneCtx = ___tracy_c_zone_context;
+type TracyCLockCtx = *mut __tracy_lockable_context_data;
 extern "C" {
     pub fn ___tracy_alloc_srcloc(
         line: u32,
@@ -530,6 +578,7 @@ extern "C" {
         sourceSz: usize,
         function: *const ::std::os::raw::c_char,
         functionSz: usize,
+        color: u32,
     ) -> u64;
 }
 extern "C" {
@@ -541,6 +590,7 @@ extern "C" {
         functionSz: usize,
         name: *const ::std::os::raw::c_char,
         nameSz: usize,
+        color: u32,
     ) -> u64;
 }
 extern "C" {
@@ -622,6 +672,9 @@ extern "C" {
     pub fn ___tracy_emit_gpu_calibration(arg1: ___tracy_gpu_calibration_data);
 }
 extern "C" {
+    pub fn ___tracy_emit_gpu_time_sync(arg1: ___tracy_gpu_time_sync_data);
+}
+extern "C" {
     pub fn ___tracy_emit_gpu_zone_begin_serial(arg1: ___tracy_gpu_zone_begin_data);
 }
 extern "C" {
@@ -651,6 +704,9 @@ extern "C" {
 }
 extern "C" {
     pub fn ___tracy_emit_gpu_calibration_serial(arg1: ___tracy_gpu_calibration_data);
+}
+extern "C" {
+    pub fn ___tracy_emit_gpu_time_sync_serial(arg1: ___tracy_gpu_time_sync_data);
 }
 extern "C" {
     pub fn ___tracy_connected() -> ::std::os::raw::c_int;
@@ -781,4 +837,42 @@ extern "C" {
 }
 extern "C" {
     pub fn ___tracy_emit_message_appinfo(txt: *const ::std::os::raw::c_char, size: usize);
+}
+extern "C" {
+    pub fn ___tracy_announce_lockable_ctx(
+        srcloc: *const ___tracy_source_location_data,
+    ) -> *mut __tracy_lockable_context_data;
+}
+extern "C" {
+    pub fn ___tracy_terminate_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
+}
+extern "C" {
+    pub fn ___tracy_before_lock_lockable_ctx(
+        lockdata: *mut __tracy_lockable_context_data,
+    ) -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn ___tracy_after_lock_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
+}
+extern "C" {
+    pub fn ___tracy_after_unlock_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
+}
+extern "C" {
+    pub fn ___tracy_after_try_lock_lockable_ctx(
+        lockdata: *mut __tracy_lockable_context_data,
+        acquired: ::std::os::raw::c_int,
+    );
+}
+extern "C" {
+    pub fn ___tracy_mark_lockable_ctx(
+        lockdata: *mut __tracy_lockable_context_data,
+        srcloc: *const ___tracy_source_location_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_custom_name_lockable_ctx(
+        lockdata: *mut __tracy_lockable_context_data,
+        name: *const ::std::os::raw::c_char,
+        nameSz: usize,
+    );
 }
