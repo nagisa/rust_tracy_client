@@ -124,6 +124,7 @@ impl Client {
                 function.len(),
                 name.map_or(std::ptr::null(), |n| n.as_ptr().cast()),
                 name.unwrap_or("").len(),
+                0
             );
             let zone = if callstack_depth == 0 {
                 sys::___tracy_emit_zone_begin_alloc(loc, 1)
