@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.17.0" # AUTO-BUMP
+version = "0.16.1" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
@@ -37,7 +37,7 @@ once_cell = "1.19"
 [dependencies.sys]
 path = "../tracy-client-sys"
 package = "tracy-client-sys"
-version = ">=0.21.2, <0.23.0" # AUTO-UPDATE
+version = ">=0.21.2, <0.24.0" # AUTO-UPDATE
 default-features = false
 
 [target.'cfg(loom)'.dependencies.loom]
