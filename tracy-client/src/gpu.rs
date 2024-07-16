@@ -302,6 +302,7 @@ impl GpuContext {
                     function.len(),
                     name.as_ptr().cast(),
                     name.len(),
+                    0,
                 )
             };
 
