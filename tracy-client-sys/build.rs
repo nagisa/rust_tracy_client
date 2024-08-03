@@ -15,6 +15,7 @@ fn link_dependencies() {
 }
 
 fn set_feature_defines(mut c: cc::Build) -> cc::Build {
+    c.define("TRACY_NO_VERIFY", None);
     if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
         c.define("TRACY_ENABLE", None);
     }
