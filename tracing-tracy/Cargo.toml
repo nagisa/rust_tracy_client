@@ -50,6 +50,7 @@ manual-lifetime = ["client/manual-lifetime"]
 delayed-init = ["client/delayed-init"]
 flush-on-exit = ["client/flush-on-exit"]
 demangle = ["client/demangle"]
+no-verify = ["client/no-verify"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]
