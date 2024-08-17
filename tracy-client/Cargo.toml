@@ -64,6 +64,7 @@ manual-lifetime = ["sys/manual-lifetime"]
 delayed-init = ["sys/delayed-init"]
 flush-on-exit = ["sys/flush-on-exit"]
 demangle = ["sys/demangle", "dep:rustc-demangle"]
+no-verify = ["sys/no-verify"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]
