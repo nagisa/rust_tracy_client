@@ -45,7 +45,7 @@ delayed-init = []
 callstack-inlines = []
 flush-on-exit = []
 demangle = []
-no-verify = []
+verify = []
 
 [package.metadata.docs.rs]
 all-features = true

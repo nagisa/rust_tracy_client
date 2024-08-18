@@ -18,9 +18,6 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
         c.define("TRACY_ENABLE", None);
     }
-    if std::env::var_os("CARGO_FEATURE_NO_VERIFY").is_some() {
-        c.define("TRACY_NO_VERIFY", None);
-    }
     if std::env::var_os("CARGO_FEATURE_TIMER_FALLBACK").is_some() {
         c.define("TRACY_TIMER_FALLBACK", None);
     }
@@ -67,6 +64,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     }
     if std::env::var_os("CARGO_FEATURE_CALLSTACK_INLINES").is_none() {
         c.define("TRACY_NO_CALLSTACK_INLINES", None);
+    }
+    if std::env::var_os("CARGO_FEATURE_VERIFY").is_none() {
+        c.define("TRACY_NO_VERIFY", None);
     }
     c
 }
