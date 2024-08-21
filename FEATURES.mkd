@@ -34,11 +34,8 @@
 * `demangle` - requires that the demangling function be defined by the user.
   See the `register_demangler!` macro for more details.
   Corresponds to the `TRACY_DEMANGLE` define.
-* `verify` - enables verification that spans are closed within Tracy's C API. Disabling this
-  reduces instrumentation overhead (~50% for 0 callstack depth spans) and improves timing precision
-  by a proportional amount. This is most noticeable in short lived spans (<100ns) but can cause
-  undefined behavior if spans are not closed. When using the provided Rust APIs this can occur if a
-  Span's drop code is not called (e.g. `std::mem::forget(span)`). When disabled
+* `verify` - enables verification that instrumentation is well formed. Enabling this introduces
+  additional instrumentation overhead (~50% for 0 callstack depth spans.) When disabled
   corresponds to the `TRACY_NO_VERIFY` define.
 
 Refer to this package's `Cargo.toml` for the list of the features enabled by default. Refer to
