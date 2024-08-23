@@ -64,15 +64,20 @@ fi
 CURRENT_SYS_VERSION=$(sed -n 's/^version = "\(.*\)" # AUTO-BUMP$/\1/p' tracy-client-sys/Cargo.toml)
 CURRENT_CLIENT_VERSION=$(sed -n 's/^version = "\(.*\)" # AUTO-BUMP$/\1/p' tracy-client/Cargo.toml)
 CURRENT_TRACING_VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' tracing-tracy/Cargo.toml)
-NEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
-  | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p' \
-  | awk '{print $0+1}').0"
-NEXTNEXT_SYS_VERSION="0.$(echo "$CURRENT_SYS_VERSION" \
-  | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p' \
-  | awk '{print $0+2}').0"
-NEXT_CLIENT_VERSION="0.16.$(echo "$CURRENT_CLIENT_VERSION" \
-  | sed -nr 's,[0-9]+\.[0-9]+\.([0-9]+),\1,p' \
-  | awk '{print $0+1}')"
+
+SYS_MAJOR=$(echo "$CURRENT_SYS_VERSION" | sed -nr 's,([0-9]+)\.[0-9]+\.[0-9]+,\1,p')
+SYS_MINOR=$(echo "$CURRENT_SYS_VERSION" | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p')
+NEXT_SYS_MINOR=$(echo "$SYS_MINOR" | awk '{print $0+1}')
+NEXTNEXT_SYS_MINOR=$(echo "$NEXT_SYS_MINOR" | awk '{print $0+1}')
+SYS_PATCH=$(echo "$CURRENT_SYS_VERSION" | sed -nr 's,[0-9]+\.[0-9]+\.([0-9]+),\1,p')
+CLIENT_MAJOR=$(echo "$CURRENT_CLIENT_VERSION" | sed -nr 's,([0-9]+)\.[0-9]+\.[0-9]+,\1,p')
+CLIENT_MINOR=$(echo "$CURRENT_CLIENT_VERSION" | sed -nr 's,[0-9]+\.([0-9]+)\.[0-9]+,\1,p')
+CLIENT_PATCH=$(echo "$CURRENT_CLIENT_VERSION" | sed -nr 's,[0-9]+\.[0-9]+\.([0-9]+),\1,p')
+NEXT_CLIENT_PATCH=$(echo "$CLIENT_PATCH" | awk '{print $0+1}')
+
+NEXT_SYS_VERSION="$SYS_MAJOR.$NEXT_SYS_MINOR.0"
+NEXTNEXT_SYS_VERSION="$SYS_MAJOR.$NEXTNEXT_SYS_MINOR.0"
+NEXT_CLIENT_VERSION="$CLIENT_MAJOR.$CLIENT_MINOR.$NEXT_CLIENT_PATCH"
 
 # Adjust the table in the README file…
 sed -i "/^<!-- AUTO-UPDATE -->$/i $(printf "| %-6s | %-15s | %-12s | %-13s |" "$TAG" "$NEXT_SYS_VERSION" "$NEXT_CLIENT_VERSION" "$CURRENT_TRACING_VERSION")" \
@@ -83,7 +88,7 @@ sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_SYS_VERSION\" \2/" \
 # …and the versions in tracy-client.
 sed -i "s/^\(version =\) \".*\" \(# AUTO-BUMP\)$/\1 \"$NEXT_CLIENT_VERSION\" \2/" \
     tracy-client/Cargo.toml
-sed -i "s/^\(version =\) \".*\" \(# AUTO-UPDATE\)$/\1 \">=0.21.2, <$NEXTNEXT_SYS_VERSION\" \2/" \
+sed -i "s/^\(version = \".*,\) <.*\" \(# AUTO-UPDATE\)$/\1 <$NEXTNEXT_SYS_VERSION\" \2/" \
     tracy-client/Cargo.toml
 
 # Make a commit that we'll PR
