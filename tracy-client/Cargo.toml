@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.17.2" # AUTO-BUMP
+version = "0.17.3" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
@@ -38,7 +38,7 @@ rustc-demangle = { version = "0.1", optional = true }
 [dependencies.sys]
 path = "../tracy-client-sys"
 package = "tracy-client-sys"
-version = ">=0.23.0, <0.24.0" # AUTO-UPDATE
+version = ">=0.23.0, <0.25.0" # AUTO-UPDATE
 default-features = false
 
 [target.'cfg(loom)'.dependencies.loom]
