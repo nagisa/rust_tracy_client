@@ -1,5 +1,11 @@
 use std::io::Write;
 
+macro_rules! docs_rs {
+    () => {
+        option_env!("DOCS_RS") == Some("1")
+    };
+}
+
 fn link_dependencies() {
     match std::env::var("CARGO_CFG_TARGET_OS").as_deref() {
         Ok("linux" | "android") => println!("cargo:rustc-link-lib=dl"),
@@ -11,6 +17,9 @@ fn link_dependencies() {
                 .expect("could not report the error");
             ::std::process::exit(0xfd);
         }
+    }
+    if std::env::var_os("CARGO_FEATURE_DEBUGINFOD").is_some() && !docs_rs!() {
+        println!("cargo:rustc-link-lib=debuginfod");
     }
 }
 
@@ -44,6 +53,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     }
     if std::env::var_os("CARGO_FEATURE_DEMANGLE").is_some() {
         c.define("TRACY_DEMANGLE", None);
+    }
+    if std::env::var_os("CARGO_FEATURE_DEBUGINFOD").is_some() && !docs_rs!() {
+        c.define("TRACY_DEBUGINFOD", None);
     }
 
     // Note: these are inversed and check for `is_none`!

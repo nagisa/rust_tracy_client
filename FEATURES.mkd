@@ -37,6 +37,8 @@
 * `verify` - enables verification that instrumentation is well formed. Enabling this introduces
   additional instrumentation overhead (~50% for 0 callstack depth spans.) When disabled
   corresponds to the `TRACY_NO_VERIFY` define.
+* `debuginfod` - enables debuginfo for system libraries on systems supporting debuginfod.
+  Corresponds to the `TRACY_DEBUGINFOD` define.
 
 Refer to this package's `Cargo.toml` for the list of the features enabled by default. Refer to
 the `Tracy` manual for more information on the implications of each feature.
