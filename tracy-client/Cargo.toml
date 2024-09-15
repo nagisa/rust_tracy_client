@@ -65,6 +65,7 @@ delayed-init = ["sys/delayed-init"]
 flush-on-exit = ["sys/flush-on-exit"]
 demangle = ["sys/demangle", "dep:rustc-demangle"]
 verify = ["sys/verify"]
+debuginfod = ["sys/debuginfod"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracy_client_docs"]

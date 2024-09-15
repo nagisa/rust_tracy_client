@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - run: sudo apt-get update
+      - run: sudo apt-get -y install libdebuginfod-dev
       - run: rustup install nightly --profile=minimal
       - run: rustup default nightly
       - run: cargo rustdoc --all-features -p tracy-client-sys -Zunstable-options --config 'build.rustdocflags=["--cfg", "tracy_client_sys_docs", "-D", "rustdoc::broken_intra_doc_links"]'

@@ -46,6 +46,7 @@ callstack-inlines = []
 flush-on-exit = []
 demangle = []
 verify = []
+debuginfod = []
 
 [package.metadata.docs.rs]
 all-features = true
