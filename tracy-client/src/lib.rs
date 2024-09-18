@@ -56,6 +56,10 @@ pub mod internal {
     use std::ffi::CString;
     pub use std::ptr::null;
 
+    pub mod demangle {
+        pub use crate::demangle::{default, implementation};
+    }
+
     #[inline(always)]
     #[must_use]
     pub fn make_span_location(
