@@ -94,15 +94,13 @@ where
     buffer.0.clear();
     let result = buffer.clear_on_err(|buffer| {
         run(str, buffer)?;
-        if buffer.0.is_empty() || buffer.0 == "\0" {
-            return Err(fmt::Error);
+        match buffer.0.as_bytes().split_last() {
+            None | Some([], 0) => return Err(fmt::Error),
+            Some(v, _) if v.contains(&0) => return Err(fmt::Error),
+            Some(_, 0) => return Ok(()),
+            _ => (),
         }
-        if buffer.0[..buffer.0.len() - 1].as_bytes().contains(&0) {
-            return Err(fmt::Error);
-        }
-        if buffer.0.as_bytes().last().copied() != Some(0) {
-            buffer.write_char('\0')?;
-        }
+        buffer.write_char('\0')?;
         Ok(())
     });
     match result {
