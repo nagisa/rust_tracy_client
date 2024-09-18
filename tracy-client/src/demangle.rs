@@ -153,7 +153,7 @@ where
 #[macro_export]
 macro_rules! register_demangler {
     () => {
-        $crate::register_demangler!($crate::demangle::default);
+        $crate::register_demangler!($crate::internal::demangle::default);
     };
 
     ($path:path) => {
@@ -162,7 +162,7 @@ macro_rules! register_demangler {
             unsafe extern "C" fn ___tracy_demangle(
                 mangled: *const std::ffi::c_char,
             ) -> *const std::ffi::c_char {
-                unsafe { $crate::demangle::implementation(mangled, $path) }
+                unsafe { $crate::internal::demangle::implementation(mangled, $path) }
             }
         };
     };
