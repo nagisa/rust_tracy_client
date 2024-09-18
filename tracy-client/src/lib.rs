@@ -56,6 +56,7 @@ pub mod internal {
     use std::ffi::CString;
     pub use std::ptr::null;
 
+    #[cfg(feature = "demangle")]
     pub mod demangle {
         pub use crate::demangle::{default, implementation};
     }
