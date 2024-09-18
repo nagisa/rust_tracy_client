@@ -95,9 +95,9 @@ where
     let result = buffer.clear_on_err(|buffer| {
         run(str, buffer)?;
         match buffer.0.as_bytes().split_last() {
-            None | Some([], 0) => return Err(fmt::Error),
-            Some(v, _) if v.contains(&0) => return Err(fmt::Error),
-            Some(_, 0) => return Ok(()),
+            None | Some((&0, [])) => return Err(fmt::Error),
+            Some((_, v)) if v.contains(&0) => return Err(fmt::Error),
+            Some((&0, _)) => return Ok(()),
             _ => (),
         }
         buffer.write_char('\0')?;
