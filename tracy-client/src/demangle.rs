@@ -14,9 +14,7 @@
 //!
 //! [macro]: crate::register_demangler
 
-use std::ffi::c_char;
-use std::fmt::{self, Write};
-use std::ptr::null;
+use std::fmt;
 
 /// Opaque buffer used to write demangled symbols.
 ///
@@ -69,46 +67,52 @@ pub fn noop(_: &str, _: &mut impl fmt::Write) -> fmt::Result {
     Err(fmt::Error)
 }
 
-// Not public API.
-#[doc(hidden)]
-pub unsafe fn implementation<F>(mangled: *const c_char, run: F) -> *const c_char
-where
-    F: FnOnce(&str, &mut Buffer) -> fmt::Result,
-{
-    // https://github.com/wolfpld/tracy/blob/d4a4b623968d99a7403cd93bae5247ed0735680a/public/client/TracyCallstack.cpp#L57-L67
-    // > The demangling function is responsible for managing memory for this string.
-    // > It is expected that it will be internally reused.
-    // > When a call to ___tracy_demangle is made, previous contents of the string memory
-    // > do not need to be preserved.
-    static mut BUFFER: Buffer = Buffer::new();
+pub(super) mod internal {
+    use super::Buffer;
+    use std::ffi::c_char;
+    use std::fmt::{self, Write};
+    use std::ptr::null;
 
-    if mangled.is_null() {
-        return null();
-    }
-    let cstr = unsafe { std::ffi::CStr::from_ptr(mangled) };
-    let Ok(str) = cstr.to_str() else {
-        return null();
-    };
+    /// Demangling glue.
+    pub unsafe fn implementation<F>(mangled: *const c_char, run: F) -> *const c_char
+    where
+        F: FnOnce(&str, &mut Buffer) -> fmt::Result,
+    {
+        // https://github.com/wolfpld/tracy/blob/d4a4b623968d99a7403cd93bae5247ed0735680a/public/client/TracyCallstack.cpp#L57-L67
+        // > The demangling function is responsible for managing memory for this string.
+        // > It is expected that it will be internally reused.
+        // > When a call to ___tracy_demangle is made, previous contents of the string memory
+        // > do not need to be preserved.
+        static mut BUFFER: Buffer = Buffer::new();
 
-    let buffer = unsafe { &mut *std::ptr::addr_of_mut!(BUFFER) };
-    buffer.0.clear();
-    let result = buffer.clear_on_err(|buffer| {
-        run(str, buffer)?;
-        match buffer.0.as_bytes().split_last() {
-            None | Some((&0, [])) => return Err(fmt::Error),
-            Some((_, v)) if v.contains(&0) => return Err(fmt::Error),
-            Some((&0, _)) => return Ok(()),
-            _ => (),
+        if mangled.is_null() {
+            return null();
         }
-        buffer.write_char('\0')?;
-        Ok(())
-    });
-    match result {
-        Ok(()) => {
-            debug_assert_eq!(buffer.0.as_bytes().last().copied(), Some(0));
-            buffer.0.as_ptr().cast()
+        let cstr = unsafe { std::ffi::CStr::from_ptr(mangled) };
+        let Ok(str) = cstr.to_str() else {
+            return null();
+        };
+
+        let buffer = unsafe { &mut *std::ptr::addr_of_mut!(BUFFER) };
+        buffer.0.clear();
+        let result = buffer.clear_on_err(|buffer| {
+            run(str, buffer)?;
+            match buffer.0.as_bytes().split_last() {
+                None | Some((&0, [])) => return Err(fmt::Error),
+                Some((_, v)) if v.contains(&0) => return Err(fmt::Error),
+                Some((&0, _)) => return Ok(()),
+                _ => (),
+            }
+            buffer.write_char('\0')?;
+            Ok(())
+        });
+        match result {
+            Ok(()) => {
+                debug_assert_eq!(buffer.0.as_bytes().last().copied(), Some(0));
+                buffer.0.as_ptr().cast()
+            }
+            Err(fmt::Error) => null(),
         }
-        Err(fmt::Error) => null(),
     }
 }
 

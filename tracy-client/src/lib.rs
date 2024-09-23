@@ -58,7 +58,7 @@ pub mod internal {
 
     #[cfg(feature = "demangle")]
     pub mod demangle {
-        pub use crate::demangle::{default, implementation};
+        pub use crate::demangle::{default, internal::implementation};
     }
 
     #[inline(always)]
