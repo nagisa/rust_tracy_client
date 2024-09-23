@@ -1,6 +1,6 @@
 [package]
 name = "tracing-tracy"
-version = "0.11.2"
+version = "0.11.3"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
@@ -51,6 +51,7 @@ delayed-init = ["client/delayed-init"]
 flush-on-exit = ["client/flush-on-exit"]
 demangle = ["client/demangle"]
 verify = ["client/verify"]
+debuginfod = ["client/debuginfod"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]
