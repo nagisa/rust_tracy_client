@@ -22,6 +22,9 @@ required-features = ["fibers"]
 
 [dependencies]
 
+[target."cfg(windows)".dependencies]
+windows = { version = "0.58.0", features = ["Win32_Security", "Win32_System_Threading"] }
+
 [build-dependencies]
 cc = { version = "1.0.83", default-features = false }
 

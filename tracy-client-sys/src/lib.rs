@@ -50,3 +50,6 @@ pub use generated_manual_lifetime::*;
 mod generated_fibers;
 #[cfg(all(feature = "enable", feature = "fibers"))]
 pub use generated_fibers::{___tracy_fiber_enter, ___tracy_fiber_leave};
+
+#[cfg(all(feature = "enable", target_os = "windows"))]
+mod dbghelp;

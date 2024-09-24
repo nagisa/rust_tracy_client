@@ -86,6 +86,13 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
 fn build_tracy_client() {
     if std::env::var_os("CARGO_FEATURE_ENABLE").is_some() {
         let mut builder = set_feature_defines(cc::Build::new());
+
+        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+            // Used for synchronizing access to the `dbghelp.dll` symbol helper.
+            // See the `dbghelp` module for more information.
+            builder.define("TRACY_DBGHELP_LOCK", "RustBacktraceMutex");
+        }
+
         let _ = builder
             .file("tracy/TracyClient.cpp")
             .warnings(false)
