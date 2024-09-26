@@ -46,6 +46,7 @@ struct SECURITY_ATTRIBUTES {
 const FALSE: BOOL = 0i32;
 const ERROR_ALREADY_EXISTS: WIN32_ERROR = 183u32;
 const INFINITE: u32 = u32::MAX;
+const WAIT_FAILED: u32 = 0xFFFFFFFF;
 
 windows_targets::link!("kernel32.dll" "system" fn GetCurrentProcessId() -> u32);
 windows_targets::link!("kernel32.dll" "system" fn CreateMutexA(lpmutexattributes: *const SECURITY_ATTRIBUTES, binitialowner: BOOL, lpname: PCSTR) -> HANDLE);
@@ -65,24 +66,24 @@ extern "C" fn RustBacktraceMutexInit() {
         // Initialize the `dbghelp.dll` symbol helper by capturing and resolving a backtrace using the standard library.
         // Since symbol resolution is lazy, the backtrace is written to `sink`, which forces symbol resolution.
         // Refer to the module documentation on why the standard library should do the initialization instead of Tracy.
-        write!(sink(), "{:?}", std::backtrace::Backtrace::force_capture()).unwrap();
+        // Errors are ignored because we don't care about the actual output.
+        let _ = write!(sink(), "{:?}", std::backtrace::Backtrace::force_capture());
 
         // The name is the same one that the standard library and `backtrace-rs` use
         let name = format!("Local\\RustBacktraceMutex{:08X}\0", GetCurrentProcessId());
-
         // Creates a named mutex that is shared with the standard library and `backtrace-rs`
         // to synchronize access to `dbghelp.dll` functions, which are single threaded.
         let mutex = CreateMutexA(std::ptr::null(), FALSE, name.as_ptr());
-        assert!(mutex != -1 as _ && mutex != 0 as _);
 
         // Initialization of the `dbghelp.dll` symbol helper should have already happened
         // through the standard library backtrace above.
-        // Therefore, the shared named mutex should already have existed.
-        assert_eq!(GetLastError(), ERROR_ALREADY_EXISTS);
-
-        // The old value is ignored because this function is only called once,
-        // and normally the handle to the mutex is leaked anyway.
-        RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
+        // To be robust against changes to symbol resolving in the standard library,
+        // the mutex is only used if it is valid and already existed.
+        if mutex != std::ptr::null_mut() && GetLastError() == ERROR_ALREADY_EXISTS {
+            // The old value is ignored because this function is only called once,
+            // and normally the handle to the mutex is leaked anyway.
+            RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
+        }
     }
 }
 
@@ -90,8 +91,14 @@ extern "C" fn RustBacktraceMutexInit() {
 extern "C" fn RustBacktraceMutexLock() {
     unsafe {
         let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
-        assert!(mutex != -1 as _ && mutex != 0 as _);
-        WaitForSingleObject(mutex, INFINITE);
+        if mutex != std::ptr::null_mut() {
+            assert_ne!(
+                WaitForSingleObject(mutex, INFINITE),
+                WAIT_FAILED,
+                "{}",
+                GetLastError()
+            );
+        }
     }
 }
 
@@ -99,7 +106,8 @@ extern "C" fn RustBacktraceMutexLock() {
 extern "C" fn RustBacktraceMutexUnlock() {
     unsafe {
         let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
-        assert!(mutex != -1 as _ && mutex != 0 as _);
-        assert_ne!(ReleaseMutex(mutex), 0);
+        if mutex != std::ptr::null_mut() {
+            assert_ne!(ReleaseMutex(mutex), 0, "{}", GetLastError());
+        }
     }
 }
