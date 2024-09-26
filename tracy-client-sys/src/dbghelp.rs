@@ -27,11 +27,31 @@
 
 use std::io::{sink, Write};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use windows::core::PCSTR;
-use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, FALSE, HANDLE};
-use windows::Win32::System::Threading::{
-    CreateMutexA, GetCurrentProcessId, ReleaseMutex, WaitForSingleObject, INFINITE,
-};
+
+// Use the `windows_targets` crate and define all the things we need ourselves to avoid a dependency on `windows`
+#[allow(clippy::upper_case_acronyms)]
+type BOOL = i32;
+#[allow(clippy::upper_case_acronyms)]
+type HANDLE = *mut core::ffi::c_void;
+#[allow(clippy::upper_case_acronyms)]
+type PCSTR = *const u8;
+type WIN32_ERROR = u32;
+#[repr(C)]
+struct SECURITY_ATTRIBUTES {
+    nLength: u32,
+    lpSecurityDescriptor: *mut core::ffi::c_void,
+    bInheritHandle: BOOL,
+}
+
+const FALSE: BOOL = 0i32;
+const ERROR_ALREADY_EXISTS: WIN32_ERROR = 183u32;
+const INFINITE: u32 = u32::MAX;
+
+windows_targets::link!("kernel32.dll" "system" fn GetCurrentProcessId() -> u32);
+windows_targets::link!("kernel32.dll" "system" fn CreateMutexA(lpmutexattributes: *const SECURITY_ATTRIBUTES, binitialowner: BOOL, lpname: PCSTR) -> HANDLE);
+windows_targets::link!("kernel32.dll" "system" fn GetLastError() -> WIN32_ERROR);
+windows_targets::link!("kernel32.dll" "system" fn WaitForSingleObject(hhandle: HANDLE, dwmilliseconds: u32) -> u32);
+windows_targets::link!("kernel32.dll" "system" fn ReleaseMutex(hmutex: HANDLE) -> BOOL);
 
 /// Handle to the shared named Windows mutex that synchronizes access to the `dbghelp.dll` symbol helper,
 /// with the standard library and `backtrace-rs`.
@@ -51,12 +71,12 @@ extern "C" fn RustBacktraceMutexInit() {
         let mut name = [0; 33];
         let id = GetCurrentProcessId();
         write!(&mut name[..], "Local\\RustBacktraceMutex{id:08X}\0").unwrap();
-        let name = PCSTR::from_raw(name.as_ptr());
+        let name: PCSTR = name.as_ptr();
 
         // Creates a named mutex that is shared with the standard library and `backtrace-rs`
         // to synchronize access to `dbghelp.dll` functions, which are single threaded.
-        let mutex = CreateMutexA(None, FALSE, name).unwrap();
-        assert!(!mutex.is_invalid());
+        let mutex = CreateMutexA(std::ptr::null(), FALSE, name);
+        assert!(mutex != -1 as _ && mutex != 0 as _);
 
         // Initialization of the `dbghelp.dll` symbol helper should have already happened
         // through the standard library backtrace above.
@@ -65,15 +85,15 @@ extern "C" fn RustBacktraceMutexInit() {
 
         // The old value is ignored because this function is only called once,
         // and normally the handle to the mutex is leaked anyway.
-        RUST_BACKTRACE_MUTEX.store(mutex.0, Ordering::Release);
+        RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
     }
 }
 
 #[no_mangle]
 extern "C" fn RustBacktraceMutexLock() {
     unsafe {
-        let mutex = HANDLE(RUST_BACKTRACE_MUTEX.load(Ordering::Acquire));
-        assert!(!mutex.is_invalid());
+        let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
+        assert!(mutex != -1 as _ && mutex != 0 as _);
         WaitForSingleObject(mutex, INFINITE);
     }
 }
@@ -81,8 +101,8 @@ extern "C" fn RustBacktraceMutexLock() {
 #[no_mangle]
 extern "C" fn RustBacktraceMutexUnlock() {
     unsafe {
-        let mutex = HANDLE(RUST_BACKTRACE_MUTEX.load(Ordering::Acquire));
-        assert!(!mutex.is_invalid());
-        ReleaseMutex(mutex).unwrap();
+        let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
+        assert!(mutex != -1 as _ && mutex != 0 as _);
+        assert_ne!(ReleaseMutex(mutex), 0);
     }
 }
