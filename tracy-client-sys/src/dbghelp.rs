@@ -68,14 +68,11 @@ extern "C" fn RustBacktraceMutexInit() {
         write!(sink(), "{:?}", std::backtrace::Backtrace::force_capture()).unwrap();
 
         // The name is the same one that the standard library and `backtrace-rs` use
-        let mut name = [0; 33];
-        let id = GetCurrentProcessId();
-        write!(&mut name[..], "Local\\RustBacktraceMutex{id:08X}\0").unwrap();
-        let name: PCSTR = name.as_ptr();
+        let name = format!("Local\\RustBacktraceMutex{:08X}\0", GetCurrentProcessId());
 
         // Creates a named mutex that is shared with the standard library and `backtrace-rs`
         // to synchronize access to `dbghelp.dll` functions, which are single threaded.
-        let mutex = CreateMutexA(std::ptr::null(), FALSE, name);
+        let mutex = CreateMutexA(std::ptr::null(), FALSE, name.as_ptr());
         assert!(mutex != -1 as _ && mutex != 0 as _);
 
         // Initialization of the `dbghelp.dll` symbol helper should have already happened
