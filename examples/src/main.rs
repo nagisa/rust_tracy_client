@@ -1,5 +1,6 @@
 mod secondary_frames;
 mod wgpu_frame_images;
+mod zones;
 
 struct ExampleDesc {
     name: &'static str,
@@ -17,6 +18,11 @@ const EXAMPLES: &[ExampleDesc] = &[
         name: "secondary_frames",
         description: "Demonstrates secondary frames, both continuous and discontinuous",
         function: secondary_frames::main,
+    },
+    ExampleDesc {
+        name: "zones",
+        description: "Demonstrates the use of zones to measure work",
+        function: zones::main,
     },
 ];
 
