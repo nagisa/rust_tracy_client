@@ -1,0 +1,9 @@
+# Examples for Tracy integration
+
+These examples exist to demonstrate how to integrate the rust-Tracy API within an application.
+They do not serve as examples of a real world application, but rather how an application would use a given API.
+
+To use them, run `cargo run -p tracy-client-examples -- example_name` from within the repository root.
+If you don't provide an `example_name`, it will list the available examples.
+
+Be sure to have Tracy running and awaiting a connection, before running any example!
