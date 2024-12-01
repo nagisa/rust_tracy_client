@@ -1,3 +1,4 @@
+mod secondary_frames;
 mod wgpu_frame_images;
 
 struct ExampleDesc {
@@ -6,11 +7,18 @@ struct ExampleDesc {
     function: fn(),
 }
 
-const EXAMPLES: &[ExampleDesc] = &[ExampleDesc {
-    name: "wgpu_frame_images",
-    description: "Demonstrates capturing frame images with wgpu",
-    function: wgpu_frame_images::main,
-}];
+const EXAMPLES: &[ExampleDesc] = &[
+    ExampleDesc {
+        name: "wgpu_frame_images",
+        description: "Demonstrates capturing frame images with wgpu",
+        function: wgpu_frame_images::main,
+    },
+    ExampleDesc {
+        name: "secondary_frames",
+        description: "Demonstrates secondary frames, both continuous and discontinuous",
+        function: secondary_frames::main,
+    },
+];
 
 fn main() {
     let example_name = std::env::args().nth(1);
