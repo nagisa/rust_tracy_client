@@ -1,4 +1,5 @@
 mod secondary_frames;
+mod threads;
 mod wgpu_frame_images;
 mod zones;
 
@@ -23,6 +24,11 @@ const EXAMPLES: &[ExampleDesc] = &[
         name: "zones",
         description: "Demonstrates the use of zones to measure work",
         function: zones::main,
+    },
+    ExampleDesc {
+        name: "threads",
+        description: "Demonstrates the use of zones across threads",
+        function: threads::main,
     },
 ];
 
