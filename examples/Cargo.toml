@@ -17,3 +17,4 @@ Examples for using `tracy-client` in a wgpu application
 tracy-client = { path = "../tracy-client" }
 wgpu = "23.0.1"
 futures = "0.3.31"
+rand = "0.8.4"
