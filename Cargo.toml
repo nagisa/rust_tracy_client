@@ -3,6 +3,7 @@ members = [
     "tracy-client-sys",
     "tracy-client",
     "tracing-tracy",
+    "examples",
 ]
 resolver = "2"
 

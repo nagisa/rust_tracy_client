@@ -1,0 +1,19 @@
+[package]
+name = "tracy-client-examples"
+publish = false
+version = "0.17.4" # AUTO-BUMP
+authors = ["Nathan Adams <dinnerbone@dinnerbone.com>"]
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme = "README.mkd"
+repository.workspace = true
+homepage.workspace = true
+description = """
+Examples for using `tracy-client` in a wgpu application
+"""
+
+[dependencies]
+tracy-client = { path = "../tracy-client" }
+wgpu = "23.0.1"
+futures = "0.3.31"
