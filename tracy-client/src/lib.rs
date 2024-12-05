@@ -32,7 +32,7 @@ pub use crate::frame::{frame_image, frame_mark, Frame, FrameName};
 pub use crate::gpu::{
     GpuContext, GpuContextCreationError, GpuContextType, GpuSpan, GpuSpanCreationError,
 };
-pub use crate::plot::PlotName;
+pub use crate::plot::{PlotConfiguration, PlotFormat, PlotLineStyle, PlotName};
 pub use crate::span::{Span, SpanLocation};
 use std::alloc;
 use std::ffi::CString;

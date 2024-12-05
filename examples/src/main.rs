@@ -1,3 +1,4 @@
+mod plots;
 mod secondary_frames;
 mod threads;
 mod wgpu_frame_images;
@@ -29,6 +30,11 @@ const EXAMPLES: &[ExampleDesc] = &[
         name: "threads",
         description: "Demonstrates the use of zones across threads",
         function: threads::main,
+    },
+    ExampleDesc {
+        name: "plots",
+        description: "Demonstrates plotting values",
+        function: plots::main,
     },
 ];
 
