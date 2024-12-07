@@ -165,6 +165,9 @@ impl Span {
     }
 
     /// Emit a color associated with this span.
+    ///
+    /// The color is specified as RGB. It is most straightforward to specify them as hex literals
+    /// such as `0xFF0000` for red, `0x00FF00` for green or `0x0000FF` for blue.
     pub fn emit_color(&self, color: u32) {
         #[cfg(feature = "enable")]
         unsafe {

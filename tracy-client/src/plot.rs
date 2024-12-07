@@ -37,6 +37,14 @@ pub enum PlotLineStyle {
 }
 
 /// Configuration for how a plot appears in the Tracy profiling UI.
+///
+/// # Examples
+///
+/// ```
+/// # use tracy_client::PlotConfiguration;
+/// // Create a red plot line.
+/// let configuration = PlotConfiguration::default().fill(false).color(Some(0xFF0000));
+/// ```
 #[derive(Clone, PartialEq, Debug)]
 pub struct PlotConfiguration {
     /// The format of values on the plot.
@@ -72,6 +80,18 @@ impl PlotConfiguration {
     }
 
     /// Sets a custom color of the plot. A value of `None` will cause Tracy to create its own color.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use tracy_client::PlotConfiguration;
+    /// // Configure the plot to be red.
+    /// let red = PlotConfiguration::default().color(Some(0xFF0000));
+    /// // Configure the plot to be green.
+    /// let green = PlotConfiguration::default().color(Some(0x00FF00));
+    /// // Configure the plot to be blue.
+    /// let blue = PlotConfiguration::default().color(Some(0x0000FF));
+    /// ```
     pub fn color(mut self, color: Option<u32>) -> Self {
         self.color = color;
         self
