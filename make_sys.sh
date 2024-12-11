@@ -36,6 +36,7 @@ COMMON_BINDGEN_PARAMS=(
 bindgen -o "tracy-client-sys/src/generated.rs" \
   --allowlist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --allowlist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
+  --blocklist-type='TracyCLockCtx' \
   ${COMMON_BINDGEN_PARAMS[@]}
 
 bindgen -o "tracy-client-sys/src/generated_manual_lifetime.rs" \
