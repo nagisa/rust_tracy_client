@@ -95,7 +95,7 @@ fn build_tracy_client() {
 
         let _ = builder
             .file("tracy/TracyClient.cpp")
-            .warnings(false)
+            .cargo_warnings(false)
             .cpp(true);
         if let Ok(tool) = builder.try_get_compiler() {
             if tool.is_like_gnu() || tool.is_like_clang() {

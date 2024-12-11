@@ -54,3 +54,7 @@ debuginfod = []
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "tracy_client_sys_docs"]
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(tracy_client_sys_docs)']

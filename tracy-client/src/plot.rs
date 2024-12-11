@@ -169,25 +169,27 @@ impl Client {
     ///     .plot_config(tracy_client::plot_name!("memory"), PlotConfiguration::default().format(PlotFormat::Memory));
     /// ```
     pub fn plot_config(&self, plot_name: PlotName, configuration: PlotConfiguration) {
-        let format = match configuration.format {
-            PlotFormat::Number => sys::TracyPlotFormatEnum_TracyPlotFormatNumber,
-            PlotFormat::Memory => sys::TracyPlotFormatEnum_TracyPlotFormatMemory,
-            PlotFormat::Percentage => sys::TracyPlotFormatEnum_TracyPlotFormatPercentage,
-            PlotFormat::Watts => sys::TracyPlotFormatEnum_TracyPlotFormatWatt,
-        } as std::os::raw::c_int;
-        let stepped = configuration.line_style == PlotLineStyle::Stepped;
-        let filled = configuration.fill;
-        let color = configuration.color.unwrap_or(0);
         #[cfg(feature = "enable")]
-        unsafe {
-            // SAFE: We made sure the `plot` refers to a null-terminated string.
-            let () = sys::___tracy_emit_plot_config(
-                plot_name.0.as_ptr().cast(),
-                format,
-                stepped.into(),
-                filled.into(),
-                color,
-            );
+        {
+            let format = match configuration.format {
+                PlotFormat::Number => sys::TracyPlotFormatEnum_TracyPlotFormatNumber,
+                PlotFormat::Memory => sys::TracyPlotFormatEnum_TracyPlotFormatMemory,
+                PlotFormat::Percentage => sys::TracyPlotFormatEnum_TracyPlotFormatPercentage,
+                PlotFormat::Watts => sys::TracyPlotFormatEnum_TracyPlotFormatWatt,
+            } as std::os::raw::c_int;
+            let stepped = configuration.line_style == PlotLineStyle::Stepped;
+            let filled = configuration.fill;
+            let color = configuration.color.unwrap_or(0);
+            unsafe {
+                // SAFE: We made sure the `plot` refers to a null-terminated string.
+                let () = sys::___tracy_emit_plot_config(
+                    plot_name.0.as_ptr().cast(),
+                    format,
+                    stepped.into(),
+                    filled.into(),
+                    color,
+                );
+            }
         }
     }
 }
