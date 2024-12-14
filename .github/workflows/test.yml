@@ -9,27 +9,42 @@ on:
     types: [opened, repoened, synchronize]
 
 jobs:
-  native-test:
+  native-test-libraries:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         rust_toolchain: [nightly, stable, 1.80.0]
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        flags: [
-          "",
-          "--release",
-          "--no-default-features",
-          "--features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines",
-          "--features=manual-lifetime"]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
       - run: rustup install ${{ matrix.rust_toolchain }} --profile=minimal
       - run: rustup default ${{ matrix.rust_toolchain }}
+      # FIXME: perhaps make this into a scrupt?
+      - run: cargo check -p tracy-client-sys
+      - run: cargo check -p tracy-client
+      - run: cargo check -p tracing-tracy
+      - run: cargo check -p tracy-client-examples
+      - run: cargo check -p tracy-client-sys --no-default-features
+      - run: cargo check -p tracy-client --no-default-features
+      - run: cargo check -p tracing-tracy --no-default-features
+      - run: cargo check -p tracy-client-sys --features=manual-lifetime
+      - run: cargo check -p tracy-client --features=manual-lifetime
+      - run: cargo check -p tracing-tracy --features=manual-lifetime
+      - run: cargo check -p tracy-client-sys --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
+      - run: cargo check -p tracy-client --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
+      - run: cargo check -p tracing-tracy --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
       - run: cargo test ${{ matrix.flags }} -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
+      - run: cargo test ${{ matrix.flags }} --release -- --nocapture
+        env:
+          TRACY_NO_INVARIANT_CHECK: 1
+      - run: cargo test ${{ matrix.flags }} --features=manual-lifetime -- --nocapture
+        env:
+          TRACY_NO_INVARIANT_CHECK: 1
+
   doc:
     runs-on: ubuntu-latest
     steps:
