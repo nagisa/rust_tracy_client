@@ -1,6 +1,6 @@
 [package]
 name = "tracy-client"
-version = "0.17.5" # AUTO-BUMP
+version = "0.17.6" # AUTO-BUMP
 authors = ["Simonas Kazlauskas <tracy-client@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
