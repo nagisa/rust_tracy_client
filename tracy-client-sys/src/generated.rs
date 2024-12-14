@@ -570,7 +570,6 @@ pub struct __tracy_lockable_context_data {
     _unused: [u8; 0],
 }
 type TracyCZoneCtx = ___tracy_c_zone_context;
-type TracyCLockCtx = *mut __tracy_lockable_context_data;
 extern "C" {
     pub fn ___tracy_alloc_srcloc(
         line: u32,
