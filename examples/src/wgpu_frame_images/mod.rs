@@ -410,7 +410,7 @@ impl TriangleRenderer {
         });
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: size_of::<f32>() as wgpu::BufferAddress,
+            size: std::mem::size_of::<f32>() as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
