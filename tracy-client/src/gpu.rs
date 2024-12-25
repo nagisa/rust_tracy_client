@@ -66,8 +66,8 @@ pub enum GpuContextType {
 /// // Some time later, once the written timestamp values are available on the cpu.
 /// # let (starting_timestamp, ending_timestamp) = (0, 0);
 ///
-/// // Consumes span.
-/// span.upload_timestamp(starting_timestamp, ending_timestamp);
+/// span.upload_timestamp_start(starting_timestamp);
+/// span.upload_timestamp_end(ending_timestamp);
 /// ```
 #[derive(Clone)]
 pub struct GpuContext {

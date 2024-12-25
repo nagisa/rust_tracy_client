@@ -126,8 +126,10 @@ fn gpu() {
     span2.end_zone();
 
     // Some time later, when the timestamps are back
-    span1.upload_timestamp(100_000, 110_000);
-    span2.upload_timestamp(120_000, 130_000);
+    span1.upload_timestamp_start(100_000);
+    span1.upload_timestamp_end(110_000);
+    span2.upload_timestamp_start(120_000);
+    span2.upload_timestamp_end(130_000);
 }
 
 fn main() {
