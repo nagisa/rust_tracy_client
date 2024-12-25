@@ -76,8 +76,6 @@ pub struct GpuContext {
     #[cfg(feature = "enable")]
     value: u8,
     #[cfg(feature = "enable")]
-    gpu_start_timestamp: i64,
-    #[cfg(feature = "enable")]
     span_freelist: Arc<Mutex<Vec<u16>>>,
     _private: (),
 }
@@ -106,10 +104,9 @@ impl std::error::Error for GpuContextCreationError {}
 enum GpuSpanState {
     /// The span has been started. All gpu spans start in this state.
     Started,
-    /// The span has been ended, waiting for timestamp upload.
+    /// The span has been ended, either waiting for timestamp upload or with
+    /// timestamp upload completed.
     Ended,
-    /// All timestamps have been uploaded.
-    Uploaded,
 }
 
 /// Span for timing gpu work.
@@ -215,7 +212,6 @@ impl Client {
             Ok(GpuContext {
                 _client: self,
                 value: context,
-                gpu_start_timestamp: gpu_timestamp,
                 span_freelist: Arc::new(Mutex::new((0..=u16::MAX).collect())),
                 _private: (),
             })
@@ -352,20 +348,16 @@ impl GpuSpan {
         }
     }
 
-    /// Uploads the gpu timestamps associated with the span start and end to tracy,
-    /// closing out the span.
-    pub fn upload_timestamp(mut self, start_timestamp: i64, end_timestamp: i64) {
+    /// Supplies the GPU timestamp for the start of this span.
+    ///
+    /// In order to avoid confusing Tracy, you must call
+    /// [`Self::upload_timestamp_start`] and [`Self::upload_timestamp_end`] in
+    /// monotonically increasing timestamp order. For example, if you have two
+    /// nested spans *outer* and *inner*, you must supply the timestamps in
+    /// this order: (1) *outer* start; (2) *inner* start; (3) *inner* end; (4)
+    /// *outer* end.
+    pub fn upload_timestamp_start(&self, start_timestamp: i64) {
         #[cfg(feature = "enable")]
-        self.upload_timestamp_impl(start_timestamp, end_timestamp);
-    }
-
-    #[cfg(feature = "enable")]
-    fn upload_timestamp_impl(&mut self, start_timestamp: i64, end_timestamp: i64) {
-        assert_eq!(
-            self.state,
-            GpuSpanState::Ended,
-            "You must call end_zone before uploading timestamps."
-        );
         unsafe {
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: start_timestamp,
@@ -373,7 +365,18 @@ impl GpuSpan {
                 context: self.context.value,
             });
         };
+    }
 
+    /// Supplies the GPU timestamp for the end of this span.
+    ///
+    /// In order to avoid confusing Tracy, you must call
+    /// [`Self::upload_timestamp_start`] and [`Self::upload_timestamp_end`] in
+    /// monotonically increasing timestamp order. For example, if you have two
+    /// nested spans *outer* and *inner*, you must supply the timestamps in this
+    /// order: (1) *outer* start; (2) *inner* start; (3) *inner* end; (4)
+    /// *outer* end.
+    pub fn upload_timestamp_end(&self, end_timestamp: i64) {
+        #[cfg(feature = "enable")]
         unsafe {
             sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
                 gpuTime: end_timestamp,
@@ -381,35 +384,25 @@ impl GpuSpan {
                 context: self.context.value,
             });
         };
-
-        // Put the ids back into the freelist.
-        let mut freelist = self.context.span_freelist.lock().unwrap();
-        freelist.push(self.start_query_id);
-        freelist.push(self.end_query_id);
-        drop(freelist);
-
-        self.state = GpuSpanState::Uploaded;
     }
 }
 
 impl Drop for GpuSpan {
     fn drop(&mut self) {
         #[cfg(feature = "enable")]
-        match self.state {
-            GpuSpanState::Started => {
-                self.end_zone();
-                self.upload_timestamp_impl(
-                    self.context.gpu_start_timestamp,
-                    self.context.gpu_start_timestamp,
-                );
+        {
+            match self.state {
+                GpuSpanState::Started => {
+                    self.end_zone();
+                }
+                GpuSpanState::Ended => {}
             }
-            GpuSpanState::Ended => {
-                self.upload_timestamp_impl(
-                    self.context.gpu_start_timestamp,
-                    self.context.gpu_start_timestamp,
-                );
-            }
-            GpuSpanState::Uploaded => {}
+
+            // Put the ids back into the freelist.
+            let mut freelist = self.context.span_freelist.lock().unwrap();
+            freelist.push(self.start_query_id);
+            freelist.push(self.end_query_id);
+            drop(freelist);
         }
     }
 }
