@@ -1,6 +1,6 @@
 [package]
 name = "tracing-tracy"
-version = "0.11.3"
+version = "0.11.4"
 authors = ["Simonas Kazlauskas <tracing-tracy@kazlauskas.me>"]
 license.workspace = true
 edition.workspace = true
@@ -20,7 +20,7 @@ bench = true
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
-client = { package = "tracy-client", path = "../tracy-client", version = "0.17.0", default-features = false }
+client = { package = "tracy-client", path = "../tracy-client", version = ">=0.17.0,<0.19.0", default-features = false }
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
@@ -58,5 +58,5 @@ rustdoc-args = ["--cfg", "tracing_tracy_docs"]
 all-features = true
 
 [lints.rust.unexpected_cfgs]
-level = "warn" 
+level = "warn"
 check-cfg = ['cfg(tracing_tracy_docs)']
