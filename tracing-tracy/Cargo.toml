@@ -33,7 +33,7 @@ criterion = "0.5"
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines" ]
+            "broadcast", "callstack-inlines", "crash-handler" ]
 broadcast = ["client/broadcast"]
 code-transfer = ["client/code-transfer"]
 context-switch-tracing = ["client/context-switch-tracing"]
@@ -52,6 +52,7 @@ flush-on-exit = ["client/flush-on-exit"]
 demangle = ["client/demangle"]
 verify = ["client/verify"]
 debuginfod = ["client/debuginfod"]
+crash-handler = ["client/crash-handler"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "tracing_tracy_docs"]
