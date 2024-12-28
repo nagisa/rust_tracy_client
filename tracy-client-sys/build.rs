@@ -80,6 +80,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_VERIFY").is_none() {
         c.define("TRACY_NO_VERIFY", None);
     }
+    if std::env::var_os("CARGO_FEATURE_CRASH_HANDLER").is_none() {
+        c.define("TRACY_NO_CRASH_HANDLER", None);
+    }
     c
 }
 
