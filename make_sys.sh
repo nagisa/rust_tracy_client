@@ -34,21 +34,21 @@ COMMON_BINDGEN_PARAMS=(
 )
 
 bindgen -o "tracy-client-sys/src/generated.rs" \
-  --rust-target 1.80.0 \
+  --rust-target 1.70.0 \
   --allowlist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --allowlist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --blocklist-type='TracyCLockCtx' \
   ${COMMON_BINDGEN_PARAMS[@]}
 
 bindgen -o "tracy-client-sys/src/generated_manual_lifetime.rs" \
-  --rust-target 1.80.0 \
+  --rust-target 1.70.0 \
   --allowlist-function='___tracy_startup_profiler' \
   --allowlist-function='___tracy_shutdown_profiler' \
   ${COMMON_BINDGEN_PARAMS[@]} \
   -DTRACY_MANUAL_LIFETIME
 
 bindgen -o "tracy-client-sys/src/generated_fibers.rs" \
-  --rust-target 1.80.0 \
+  --rust-target 1.70.0 \
   --allowlist-function='___tracy_fiber_enter' \
   --allowlist-function='___tracy_fiber_leave' \
   ${COMMON_BINDGEN_PARAMS[@]} \
