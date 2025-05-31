@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@85e6279cec87321a52edac9c87bce653a07cf6c2
       - run: rustup install stable --profile=minimal
       - run: rustup default stable
       - run: cargo install bindgen-cli
@@ -18,18 +18,18 @@ jobs:
         id: make_sys
       - run: git diff
       - if: ${{ steps.make_sys.outputs.tracy-changed }}
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@dff4b11d10ecc84d937fdd0653d8343a88c5b9c4
         id: generate-token
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - if: ${{ steps.make_sys.outputs.tracy-changed }}
         name: Create Pull Request
-        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38
+        uses: peter-evans/create-pull-request@88ed63ce144f5372efe9f999d8bb224f582d98d9
         with:
+          token: ${{ steps.generate-token.outputs.token }}
           title: "Update tracy client bindings to ${{ steps.make_sys.outputs.tracy-tag }}"
           body: ''
           delete-branch: true
-          token: ${{ steps.generate-token.outputs.token }}
+          branch: sys-update/${{ steps.make_sys.outputs.tracy-tag }}
           base: main
-          branch-suffix: random
