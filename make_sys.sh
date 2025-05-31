@@ -17,7 +17,7 @@ TAG="${LAST_RELEASE[0]}"
 TARBALL="${LAST_RELEASE[1]}"
 DESTINATION=/tmp/tracy-$TAG # could use mktemp, but unnecessary complexity.
 
-echo "::set-output name=tracy-tag::$TAG"
+echo "tracy-tag=$TAG" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 mkdir -p "$DESTINATION"
 curl -sL "$TARBALL" -o - | tar -f - -zxC "$DESTINATION"
 BASEDIR=("$DESTINATION"/*)
@@ -57,7 +57,7 @@ sed -i 's/pub type /type /g' 'tracy-client-sys/src/generated.rs'
 # Avoid running the other steps if we haven't really updated tracy (e.g. if bindgen/rustfmt version
 # changed)
 if ! git diff --quiet "tracy-client-sys/tracy"; then
-    echo "::set-output name=tracy-changed::true"
+    echo "tracy-changed=true" >> "${GITHUB_OUTPUT:-/dev/stdout}"
 else
     exit 0
 fi
