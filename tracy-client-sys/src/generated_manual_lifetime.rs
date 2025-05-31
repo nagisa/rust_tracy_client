@@ -1,6 +1,6 @@
-extern "C" {
+unsafe extern "C" {
     pub fn ___tracy_startup_profiler();
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ___tracy_shutdown_profiler();
 }
