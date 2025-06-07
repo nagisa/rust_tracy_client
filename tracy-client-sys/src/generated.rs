@@ -15,39 +15,79 @@ pub struct ___tracy_source_location_data {
     pub line: u32,
     pub color: u32,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_source_location_data"]
-        [::std::mem::size_of::<___tracy_source_location_data>() - 32usize];
-    ["Alignment of ___tracy_source_location_data"]
-        [::std::mem::align_of::<___tracy_source_location_data>() - 8usize];
-    ["Offset of field: ___tracy_source_location_data::name"]
-        [::std::mem::offset_of!(___tracy_source_location_data, name) - 0usize];
-    ["Offset of field: ___tracy_source_location_data::function"]
-        [::std::mem::offset_of!(___tracy_source_location_data, function) - 8usize];
-    ["Offset of field: ___tracy_source_location_data::file"]
-        [::std::mem::offset_of!(___tracy_source_location_data, file) - 16usize];
-    ["Offset of field: ___tracy_source_location_data::line"]
-        [::std::mem::offset_of!(___tracy_source_location_data, line) - 24usize];
-    ["Offset of field: ___tracy_source_location_data::color"]
-        [::std::mem::offset_of!(___tracy_source_location_data, color) - 28usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_source_location_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_source_location_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_source_location_data>(),
+        32usize,
+        "Size of ___tracy_source_location_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_source_location_data>(),
+        8usize,
+        "Alignment of ___tracy_source_location_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_source_location_data::name"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).function) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_source_location_data::function"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).file) as usize - ptr as usize },
+        16usize,
+        "Offset of field: ___tracy_source_location_data::file"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).line) as usize - ptr as usize },
+        24usize,
+        "Offset of field: ___tracy_source_location_data::line"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).color) as usize - ptr as usize },
+        28usize,
+        "Offset of field: ___tracy_source_location_data::color"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_c_zone_context {
     pub id: u32,
     pub active: i32,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_c_zone_context"][::std::mem::size_of::<___tracy_c_zone_context>() - 8usize];
-    ["Alignment of ___tracy_c_zone_context"]
-        [::std::mem::align_of::<___tracy_c_zone_context>() - 4usize];
-    ["Offset of field: ___tracy_c_zone_context::id"]
-        [::std::mem::offset_of!(___tracy_c_zone_context, id) - 0usize];
-    ["Offset of field: ___tracy_c_zone_context::active"]
-        [::std::mem::offset_of!(___tracy_c_zone_context, active) - 4usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_c_zone_context() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_c_zone_context> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_c_zone_context>(),
+        8usize,
+        "Size of ___tracy_c_zone_context"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_c_zone_context>(),
+        4usize,
+        "Alignment of ___tracy_c_zone_context"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).id) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_c_zone_context::id"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).active) as usize - ptr as usize },
+        4usize,
+        "Offset of field: ___tracy_c_zone_context::active"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_time_data {
@@ -55,18 +95,37 @@ pub struct ___tracy_gpu_time_data {
     pub queryId: u16,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_time_data"][::std::mem::size_of::<___tracy_gpu_time_data>() - 16usize];
-    ["Alignment of ___tracy_gpu_time_data"]
-        [::std::mem::align_of::<___tracy_gpu_time_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_time_data::gpuTime"]
-        [::std::mem::offset_of!(___tracy_gpu_time_data, gpuTime) - 0usize];
-    ["Offset of field: ___tracy_gpu_time_data::queryId"]
-        [::std::mem::offset_of!(___tracy_gpu_time_data, queryId) - 8usize];
-    ["Offset of field: ___tracy_gpu_time_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_time_data, context) - 10usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_time_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_time_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_time_data>(),
+        16usize,
+        "Size of ___tracy_gpu_time_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_time_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_time_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).gpuTime) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_time_data::gpuTime"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).queryId) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_time_data::queryId"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        10usize,
+        "Offset of field: ___tracy_gpu_time_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_zone_begin_data {
@@ -74,19 +133,37 @@ pub struct ___tracy_gpu_zone_begin_data {
     pub queryId: u16,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_zone_begin_data"]
-        [::std::mem::size_of::<___tracy_gpu_zone_begin_data>() - 16usize];
-    ["Alignment of ___tracy_gpu_zone_begin_data"]
-        [::std::mem::align_of::<___tracy_gpu_zone_begin_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_data::srcloc"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_data, srcloc) - 0usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_data::queryId"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_data, queryId) - 8usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_data, context) - 10usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_zone_begin_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_zone_begin_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_zone_begin_data>(),
+        16usize,
+        "Size of ___tracy_gpu_zone_begin_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_zone_begin_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_zone_begin_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).srcloc) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_zone_begin_data::srcloc"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).queryId) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_zone_begin_data::queryId"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        10usize,
+        "Offset of field: ___tracy_gpu_zone_begin_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_zone_begin_callstack_data {
@@ -95,38 +172,74 @@ pub struct ___tracy_gpu_zone_begin_callstack_data {
     pub queryId: u16,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_zone_begin_callstack_data"]
-        [::std::mem::size_of::<___tracy_gpu_zone_begin_callstack_data>() - 16usize];
-    ["Alignment of ___tracy_gpu_zone_begin_callstack_data"]
-        [::std::mem::align_of::<___tracy_gpu_zone_begin_callstack_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_callstack_data::srcloc"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_callstack_data, srcloc) - 0usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_callstack_data::depth"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_callstack_data, depth) - 8usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_callstack_data::queryId"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_callstack_data, queryId) - 12usize];
-    ["Offset of field: ___tracy_gpu_zone_begin_callstack_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_begin_callstack_data, context) - 14usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_zone_begin_callstack_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_zone_begin_callstack_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_zone_begin_callstack_data>(),
+        16usize,
+        "Size of ___tracy_gpu_zone_begin_callstack_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_zone_begin_callstack_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_zone_begin_callstack_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).srcloc) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_zone_begin_callstack_data::srcloc"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).depth) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_zone_begin_callstack_data::depth"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).queryId) as usize - ptr as usize },
+        12usize,
+        "Offset of field: ___tracy_gpu_zone_begin_callstack_data::queryId"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        14usize,
+        "Offset of field: ___tracy_gpu_zone_begin_callstack_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_zone_end_data {
     pub queryId: u16,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_zone_end_data"]
-        [::std::mem::size_of::<___tracy_gpu_zone_end_data>() - 4usize];
-    ["Alignment of ___tracy_gpu_zone_end_data"]
-        [::std::mem::align_of::<___tracy_gpu_zone_end_data>() - 2usize];
-    ["Offset of field: ___tracy_gpu_zone_end_data::queryId"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_end_data, queryId) - 0usize];
-    ["Offset of field: ___tracy_gpu_zone_end_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_zone_end_data, context) - 2usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_zone_end_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_zone_end_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_zone_end_data>(),
+        4usize,
+        "Size of ___tracy_gpu_zone_end_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_zone_end_data>(),
+        2usize,
+        "Alignment of ___tracy_gpu_zone_end_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).queryId) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_zone_end_data::queryId"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        2usize,
+        "Offset of field: ___tracy_gpu_zone_end_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_new_context_data {
@@ -136,23 +249,47 @@ pub struct ___tracy_gpu_new_context_data {
     pub flags: u8,
     pub type_: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_new_context_data"]
-        [::std::mem::size_of::<___tracy_gpu_new_context_data>() - 16usize];
-    ["Alignment of ___tracy_gpu_new_context_data"]
-        [::std::mem::align_of::<___tracy_gpu_new_context_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_new_context_data::gpuTime"]
-        [::std::mem::offset_of!(___tracy_gpu_new_context_data, gpuTime) - 0usize];
-    ["Offset of field: ___tracy_gpu_new_context_data::period"]
-        [::std::mem::offset_of!(___tracy_gpu_new_context_data, period) - 8usize];
-    ["Offset of field: ___tracy_gpu_new_context_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_new_context_data, context) - 12usize];
-    ["Offset of field: ___tracy_gpu_new_context_data::flags"]
-        [::std::mem::offset_of!(___tracy_gpu_new_context_data, flags) - 13usize];
-    ["Offset of field: ___tracy_gpu_new_context_data::type_"]
-        [::std::mem::offset_of!(___tracy_gpu_new_context_data, type_) - 14usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_new_context_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_new_context_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_new_context_data>(),
+        16usize,
+        "Size of ___tracy_gpu_new_context_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_new_context_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_new_context_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).gpuTime) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_new_context_data::gpuTime"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).period) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_new_context_data::period"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        12usize,
+        "Offset of field: ___tracy_gpu_new_context_data::context"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).flags) as usize - ptr as usize },
+        13usize,
+        "Offset of field: ___tracy_gpu_new_context_data::flags"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
+        14usize,
+        "Offset of field: ___tracy_gpu_new_context_data::type_"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_context_name_data {
@@ -160,19 +297,37 @@ pub struct ___tracy_gpu_context_name_data {
     pub name: *const ::std::os::raw::c_char,
     pub len: u16,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_context_name_data"]
-        [::std::mem::size_of::<___tracy_gpu_context_name_data>() - 24usize];
-    ["Alignment of ___tracy_gpu_context_name_data"]
-        [::std::mem::align_of::<___tracy_gpu_context_name_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_context_name_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_context_name_data, context) - 0usize];
-    ["Offset of field: ___tracy_gpu_context_name_data::name"]
-        [::std::mem::offset_of!(___tracy_gpu_context_name_data, name) - 8usize];
-    ["Offset of field: ___tracy_gpu_context_name_data::len"]
-        [::std::mem::offset_of!(___tracy_gpu_context_name_data, len) - 16usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_context_name_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_context_name_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_context_name_data>(),
+        24usize,
+        "Size of ___tracy_gpu_context_name_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_context_name_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_context_name_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_context_name_data::context"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_context_name_data::name"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).len) as usize - ptr as usize },
+        16usize,
+        "Offset of field: ___tracy_gpu_context_name_data::len"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_calibration_data {
@@ -180,36 +335,69 @@ pub struct ___tracy_gpu_calibration_data {
     pub cpuDelta: i64,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_calibration_data"]
-        [::std::mem::size_of::<___tracy_gpu_calibration_data>() - 24usize];
-    ["Alignment of ___tracy_gpu_calibration_data"]
-        [::std::mem::align_of::<___tracy_gpu_calibration_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_calibration_data::gpuTime"]
-        [::std::mem::offset_of!(___tracy_gpu_calibration_data, gpuTime) - 0usize];
-    ["Offset of field: ___tracy_gpu_calibration_data::cpuDelta"]
-        [::std::mem::offset_of!(___tracy_gpu_calibration_data, cpuDelta) - 8usize];
-    ["Offset of field: ___tracy_gpu_calibration_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_calibration_data, context) - 16usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_calibration_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_calibration_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_calibration_data>(),
+        24usize,
+        "Size of ___tracy_gpu_calibration_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_calibration_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_calibration_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).gpuTime) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_calibration_data::gpuTime"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).cpuDelta) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_calibration_data::cpuDelta"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        16usize,
+        "Offset of field: ___tracy_gpu_calibration_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ___tracy_gpu_time_sync_data {
     pub gpuTime: i64,
     pub context: u8,
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ___tracy_gpu_time_sync_data"]
-        [::std::mem::size_of::<___tracy_gpu_time_sync_data>() - 16usize];
-    ["Alignment of ___tracy_gpu_time_sync_data"]
-        [::std::mem::align_of::<___tracy_gpu_time_sync_data>() - 8usize];
-    ["Offset of field: ___tracy_gpu_time_sync_data::gpuTime"]
-        [::std::mem::offset_of!(___tracy_gpu_time_sync_data, gpuTime) - 0usize];
-    ["Offset of field: ___tracy_gpu_time_sync_data::context"]
-        [::std::mem::offset_of!(___tracy_gpu_time_sync_data, context) - 8usize];
-};
+#[test]
+fn bindgen_test_layout____tracy_gpu_time_sync_data() {
+    const UNINIT: ::std::mem::MaybeUninit<___tracy_gpu_time_sync_data> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<___tracy_gpu_time_sync_data>(),
+        16usize,
+        "Size of ___tracy_gpu_time_sync_data"
+    );
+    assert_eq!(
+        ::std::mem::align_of::<___tracy_gpu_time_sync_data>(),
+        8usize,
+        "Alignment of ___tracy_gpu_time_sync_data"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).gpuTime) as usize - ptr as usize },
+        0usize,
+        "Offset of field: ___tracy_gpu_time_sync_data::gpuTime"
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).context) as usize - ptr as usize },
+        8usize,
+        "Offset of field: ___tracy_gpu_time_sync_data::context"
+    );
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct __tracy_lockable_context_data {
