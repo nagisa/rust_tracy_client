@@ -77,7 +77,7 @@ extern "C" fn RustBacktraceMutexInit() {
         // through the standard library backtrace above.
         // To be robust against changes to symbol resolving in the standard library,
         // the mutex is only used if it is valid and already existed.
-        if mutex != std::ptr::null_mut() && GetLastError() == ERROR_ALREADY_EXISTS {
+        if !mutex.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
             // The old value is ignored because this function is only called once,
             // and normally the handle to the mutex is leaked anyway.
             RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
@@ -89,7 +89,7 @@ extern "C" fn RustBacktraceMutexInit() {
 extern "C" fn RustBacktraceMutexLock() {
     unsafe {
         let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
-        if mutex != std::ptr::null_mut() {
+        if !mutex.is_null() {
             assert_ne!(
                 WaitForSingleObject(mutex, INFINITE),
                 WAIT_FAILED,
@@ -104,7 +104,7 @@ extern "C" fn RustBacktraceMutexLock() {
 extern "C" fn RustBacktraceMutexUnlock() {
     unsafe {
         let mutex = RUST_BACKTRACE_MUTEX.load(Ordering::Acquire);
-        if mutex != std::ptr::null_mut() {
+        if !mutex.is_null() {
             assert_ne!(ReleaseMutex(mutex), 0, "{}", GetLastError());
         }
     }
