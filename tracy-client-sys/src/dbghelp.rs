@@ -25,7 +25,6 @@
 //! Therefore, we want `backtrace-rs` to initialize and modify the symbol search path before Tracy.
 //! To do that, a standard library backtrace is captured and resolved in [`RustBacktraceMutexInit`].
 
-use std::io::{sink, Write};
 use std::sync::atomic::{AtomicPtr, Ordering};
 
 // Use the `windows_targets` crate and define all the things we need ourselves to avoid a dependency on `windows`
@@ -64,10 +63,9 @@ static RUST_BACKTRACE_MUTEX: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(std::
 extern "C" fn RustBacktraceMutexInit() {
     unsafe {
         // Initialize the `dbghelp.dll` symbol helper by capturing and resolving a backtrace using the standard library.
-        // Since symbol resolution is lazy, the backtrace is written to `sink`, which forces symbol resolution.
+        // The backtrace is written to a String using its `Display` implementation, which forces symbol resolution.
         // Refer to the module documentation on why the standard library should do the initialization instead of Tracy.
-        // Errors are ignored because we don't care about the actual output.
-        let _ = write!(sink(), "{:?}", std::backtrace::Backtrace::force_capture());
+        std::hint::black_box(std::backtrace::Backtrace::force_capture().to_string());
 
         // The name is the same one that the standard library and `backtrace-rs` use
         let name = format!("Local\\RustBacktraceMutex{:08X}\0", GetCurrentProcessId());
