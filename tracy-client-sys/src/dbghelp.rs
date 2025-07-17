@@ -40,7 +40,6 @@ struct SECURITY_ATTRIBUTES {
 
 const FALSE: BOOL = 0i32;
 const TRUE: BOOL = 1i32;
-const ERROR_ALREADY_EXISTS: WIN32_ERROR = 183u32;
 const INFINITE: u32 = u32::MAX;
 const WAIT_FAILED: u32 = 0xFFFFFFFF;
 
@@ -71,16 +70,11 @@ extern "C" fn RustBacktraceMutexInit() {
         // Creates a named mutex that is shared with the standard library and `backtrace-rs`
         // to synchronize access to `dbghelp.dll` functions, which are single threaded.
         let mutex = CreateMutexA(std::ptr::null(), FALSE, name.as_ptr());
+        assert!(!mutex.is_null());
 
-        // Initialization of the `dbghelp.dll` symbol helper should have already happened
-        // through the standard library backtrace above.
-        // To be robust against changes to symbol resolving in the standard library,
-        // the mutex is only used if it is valid and already existed.
-        if !mutex.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
-            // The old value is ignored because this function is only called once,
-            // and normally the handle to the mutex is leaked anyway.
-            RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
-        }
+        // The old value is ignored because this function is only called once,
+        // and normally the handle to the mutex is leaked anyway.
+        RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
     }
 
     // We initialize `dbghelp.dll` symbol handler before Tracy does,
