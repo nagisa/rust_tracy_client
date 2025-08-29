@@ -14,7 +14,8 @@ Examples for using `tracy-client` in a wgpu application
 """
 
 [dependencies]
-tracy-client = { path = "../tracy-client" }
+tracy-client = { path = "../tracy-client", features = ["fibers"] }
+tracy-client-sys = { path = "../tracy-client-sys" }
 wgpu = "23.0.1"
 futures = "0.3.31"
 rand = "0.8.4"

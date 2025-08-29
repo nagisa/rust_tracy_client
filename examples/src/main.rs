@@ -1,3 +1,4 @@
+mod fibers;
 mod plots;
 mod secondary_frames;
 mod threads;
@@ -35,6 +36,11 @@ const EXAMPLES: &[ExampleDesc] = &[
         name: "plots",
         description: "Demonstrates plotting values",
         function: plots::main,
+    },
+    ExampleDesc {
+        name: "fibers",
+        description: "Demonstrates fibers",
+        function: fibers::main,
     },
 ];
 
