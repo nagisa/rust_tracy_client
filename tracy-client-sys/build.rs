@@ -98,7 +98,8 @@ fn build_tracy_client() {
 
         let _ = builder
             .file("tracy/TracyClient.cpp")
-            .cargo_warnings(false)
+            .define("TRACY_ENABLE", "1")
+            .include("tracy/TracyCUDA.hpp")
             .cpp(true);
         if let Ok(tool) = builder.try_get_compiler() {
             if tool.is_like_gnu() || tool.is_like_clang() {
