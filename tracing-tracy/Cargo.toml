@@ -19,21 +19,33 @@ bench = true
 
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "registry"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "fmt",
+    "registry",
+] }
 client = { package = "tracy-client", path = "../tracy-client", version = ">=0.17.0,<0.19.0", default-features = false }
+sys = { package = "tracy-client-sys", path = "../tracy-client-sys" }
 
 [dev-dependencies]
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tokio = { version = "1", features = ["full"] }
-tracing-attributes =  { version = "0.1"}
+tracing-attributes = { version = "0.1" }
 tracing-futures = { version = "0.2" }
 futures = "0.3"
 criterion = "0.5"
 
 [features]
 # Refer to FEATURES.mkd for documentation on features.
-default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines", "crash-handler" ]
+default = [
+    "enable",
+    "system-tracing",
+    "context-switch-tracing",
+    "sampling",
+    "code-transfer",
+    "broadcast",
+    "callstack-inlines",
+    "crash-handler",
+]
 broadcast = ["client/broadcast"]
 code-transfer = ["client/code-transfer"]
 context-switch-tracing = ["client/context-switch-tracing"]
