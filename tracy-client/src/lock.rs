@@ -80,6 +80,16 @@ impl<T> TracyMutex<T> {
             inner: ManuallyDrop::new(std::sync::Mutex::new(t)),
         }
     }
+
+    /// Set custom name and return self
+    #[inline]
+    pub fn with_custom_name(self, name: &str) -> Self {
+        unsafe {
+            let name = name.as_bytes();
+            sys::___tracy_custom_name_lockable_ctx(self.ctx, name.as_ptr() as *const i8, name.len())
+        };
+        self
+    }
 }
 
 impl<T: ?Sized> TracyMutex<T> {
@@ -235,6 +245,6 @@ macro_rules! mutex {
         TracyMutex::new($t, $crate::span_location!())
     };
     ($t:expr, $name: expr) => {{
-        TracyMutex::new($t, $crate::span_location!($name))
+        TracyMutex::new($t, $crate::span_location!($name)).with_custom_name($name)
     }};
 }
