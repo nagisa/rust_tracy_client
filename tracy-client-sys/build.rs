@@ -113,6 +113,9 @@ fn build_tracy_client() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_LIB");
+    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_LIB_PATH");
+    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_STATIC");
     if let Ok(lib) = std::env::var("TRACY_CLIENT_LIB") {
         if let Ok(lib_path) = std::env::var("TRACY_CLIENT_LIB_PATH") {
             println!("cargo:rustc-link-search=native={lib_path}");
