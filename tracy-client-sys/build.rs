@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{env::VarError, io::Write};
 
 macro_rules! docs_rs {
     () => {
@@ -112,16 +112,21 @@ fn build_tracy_client() {
     }
 }
 
+fn read_env_and_rerun_if_changed(var: &str) -> Result<String, VarError> {
+    println!("cargo:rerun-if-env-changed={}", var);
+    std::env::var(var)
+}
+
 fn main() {
-    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_LIB");
-    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_LIB_PATH");
-    println!("cargo:rerun-if-env-changed=TRACY_CLIENT_STATIC");
-    if let Ok(lib) = std::env::var("TRACY_CLIENT_LIB") {
-        if let Ok(lib_path) = std::env::var("TRACY_CLIENT_LIB_PATH") {
+    let client_lib = read_env_and_rerun_if_changed("TRACY_CLIENT_LIB");
+    let client_lib_path = read_env_and_rerun_if_changed("TRACY_CLIENT_LIB_PATH");
+    let kind = read_env_and_rerun_if_changed("TRACY_CLIENT_STATIC");
+
+    if let Ok(lib) = client_lib {
+        if let Ok(lib_path) = client_lib_path {
             println!("cargo:rustc-link-search=native={lib_path}");
         }
-        let kind = std::env::var_os("TRACY_CLIENT_STATIC");
-        let mode = if kind.is_none() || kind.as_deref() == Some(std::ffi::OsStr::new("0")) {
+        let mode = if kind.is_err() || kind.as_deref() == Ok("0") {
             "dylib"
         } else {
             link_dependencies();
