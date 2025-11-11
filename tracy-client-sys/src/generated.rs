@@ -704,3 +704,9 @@ extern "C" {
         nameSz: usize,
     );
 }
+extern "C" {
+    pub fn ___tracy_begin_sampling_profiler() -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn ___tracy_end_sampling_profiler();
+}

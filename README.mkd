@@ -59,4 +59,5 @@ The following table lists the version correspondence between the libraries.
 | v0.11.1 | 0.24.3          | 0.18.0       | 0.11.4        |
 | v0.12.0 | 0.25.0          | 0.18.1       | 0.11.4        |
 | v0.12.2 | 0.26.0          | 0.18.2       | 0.11.4        |
+| v0.13.0 | 0.27.0          | 0.18.3       | 0.11.4        |
 <!-- AUTO-UPDATE -->
