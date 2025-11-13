@@ -46,7 +46,6 @@
 //! The following crate features are provided to customize the functionality of the Tracy client:
 //!
 #![doc = include_str!("../FEATURES.mkd")]
-#![cfg_attr(tracing_tracy_docs, feature(doc_auto_cfg))]
 
 use client::{Client, Span};
 pub use config::{Config, DefaultConfig};

@@ -26,7 +26,6 @@
 //! The following crate features are provided to customize the functionality of the Tracy client:
 //!
 #![doc = include_str!("../FEATURES.mkd")]
-#![cfg_attr(tracy_client_docs, feature(doc_auto_cfg))]
 
 pub use crate::frame::{frame_image, frame_mark, Frame, FrameName};
 pub use crate::gpu::{

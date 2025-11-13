@@ -55,9 +55,4 @@ debuginfod = ["client/debuginfod"]
 crash-handler = ["client/crash-handler"]
 
 [package.metadata.docs.rs]
-rustdoc-args = ["--cfg", "tracing_tracy_docs"]
 all-features = true
-
-[lints.rust.unexpected_cfgs]
-level = "warn"
-check-cfg = ['cfg(tracing_tracy_docs)']

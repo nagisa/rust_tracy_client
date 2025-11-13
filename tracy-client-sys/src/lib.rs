@@ -34,7 +34,6 @@
     unused_variables,
     deref_nullptr
 )]
-#![cfg_attr(tracy_client_sys_docs, feature(doc_auto_cfg))]
 
 #[cfg(feature = "enable")]
 mod generated;
