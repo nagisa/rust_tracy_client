@@ -1,5 +1,4 @@
 use crate::{adjust_stack_depth, Client};
-use std::ffi::CString;
 
 /// A handle representing a span of execution.
 ///
@@ -19,8 +18,6 @@ pub struct Span {
 ///
 /// Construct with the [`span_location!`](crate::span_location) macro.
 pub struct SpanLocation {
-    #[cfg(feature = "enable")]
-    pub(crate) _function_name: CString,
     #[cfg(feature = "enable")]
     pub(crate) data: sys::___tracy_source_location_data,
     #[cfg(not(feature = "enable"))]

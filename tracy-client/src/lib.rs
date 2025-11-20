@@ -74,12 +74,12 @@ pub mod internal {
             SpanLocation {
                 data: sys::___tracy_source_location_data {
                     name: span_name.cast(),
-                    function: function_name.as_ptr(),
+                    // Leak the string; `make_span_location` is only used inside `static`s.
+                    function: function_name.into_raw().cast(),
                     file: file.cast(),
                     line,
                     color: 0,
                 },
-                _function_name: function_name,
             }
         }
         #[cfg(not(feature = "enable"))]
