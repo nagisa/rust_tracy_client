@@ -67,6 +67,7 @@ pub mod internal {
         span_name: *const u8,
         file: *const u8,
         line: u32,
+        color: u32,
     ) -> SpanLocation {
         #[cfg(feature = "enable")]
         {
@@ -78,7 +79,32 @@ pub mod internal {
                     function: function_name.into_raw().cast(),
                     file: file.cast(),
                     line,
-                    color: 0,
+                    color,
+                },
+            }
+        }
+        #[cfg(not(feature = "enable"))]
+        crate::SpanLocation { _internal: () }
+    }
+
+    #[inline(always)]
+    #[must_use]
+    pub const fn static_span_location(
+        function: *const u8,
+        name: *const u8,
+        file: *const u8,
+        line: u32,
+        color: u32,
+    ) -> SpanLocation {
+        #[cfg(feature = "enable")]
+        {
+            SpanLocation {
+                data: sys::___tracy_source_location_data {
+                    name: name.cast(),
+                    function: function.cast(),
+                    file: file.cast(),
+                    line,
+                    color,
                 },
             }
         }
