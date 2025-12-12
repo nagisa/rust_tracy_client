@@ -610,24 +610,22 @@ static const char* GetHostInfo()
     ptr += sprintf( ptr, "User: %s@%s\n", user, hostname );
 #else
     char hostname[_POSIX_HOST_NAME_MAX]{};
-    char user[_POSIX_LOGIN_NAME_MAX]{};
-
     gethostname( hostname, _POSIX_HOST_NAME_MAX );
 #  if defined __ANDROID__
     const auto login = getlogin();
     if( login )
     {
-        strcpy( user, login );
+        ptr += sprintf( ptr, "User: %s@%s\n", login, hostname );
     }
     else
     {
-        memcpy( user, "(?)", 4 );
+        ptr += sprintf( ptr, "User: (?)@%s\n", hostname );
     }
 #  else
+    char user[_POSIX_LOGIN_NAME_MAX]{};
     getlogin_r( user, _POSIX_LOGIN_NAME_MAX );
-#  endif
-
     ptr += sprintf( ptr, "User: %s@%s\n", user, hostname );
+#  endif
 #endif
 
 #if defined __i386 || defined _M_IX86
@@ -935,7 +933,7 @@ static Thread* s_symbolThread;
 std::atomic<bool> s_symbolThreadGone { false };
 #endif
 #ifdef TRACY_HAS_SYSTEM_TRACING
-static Thread* s_sysTraceThread = nullptr;
+static std::atomic<Thread*> s_sysTraceThread = nullptr;
 #endif
 
 #if defined __linux__ && !defined TRACY_NO_CRASH_HANDLER
@@ -1179,27 +1177,29 @@ static void StartSystemTracing( int64_t& samplingPeriod )
     // use TRACY_NO_SYS_TRACE=1 to force disabling sys tracing (even if available in the underlying system)
     // as it can have significant impact on the size of the traces
     const char* noSysTrace = GetEnvVar( "TRACY_NO_SYS_TRACE" );
-    const bool disableSystrace = (noSysTrace && noSysTrace[0] == '1');
+    const bool disableSystrace = ( noSysTrace && noSysTrace[0] == '1' );
     if( disableSystrace )
     {
-        TracyDebug("TRACY: Sys Trace was disabled by 'TRACY_NO_SYS_TRACE=1'\n");
+        TracyDebug( "TRACY: Sys Trace was disabled by 'TRACY_NO_SYS_TRACE=1'\n" );
     }
     else if( SysTraceStart( samplingPeriod ) )
     {
-        s_sysTraceThread = (Thread*)tracy_malloc( sizeof( Thread ) );
-        new(s_sysTraceThread) Thread( SysTraceWorker, nullptr );
+        Thread* sysTraceThread = (Thread*)tracy_malloc( sizeof( Thread ) );
+        new( sysTraceThread ) Thread( SysTraceWorker, nullptr );
+        Thread* prev = s_sysTraceThread.exchange( sysTraceThread );
+        assert( prev == nullptr );
         std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
     }
 }
 
 static void StopSystemTracing()
 {
-    if( s_sysTraceThread )
+    Thread* sysTraceThread = s_sysTraceThread.exchange( nullptr );
+    if( sysTraceThread )
     {
         SysTraceStop();
-        s_sysTraceThread->~Thread();
-        tracy_free( s_sysTraceThread );
-        s_sysTraceThread = nullptr;
+        sysTraceThread->~Thread();
+        tracy_free( sysTraceThread );
     }
 }
 #endif
@@ -1767,8 +1767,8 @@ void Profiler::Worker()
 #ifdef TRACY_ON_DEMAND
     flags |= WelcomeFlag::OnDemand;
 #endif
-#ifdef __APPLE__
-    flags |= WelcomeFlag::IsApple;
+#if defined TRACY_IGNORE_MEMORY_FAULTS || defined __APPLE__
+    flags |= WelcomeFlag::IgnoreMemFaults;
 #endif
 #ifndef TRACY_NO_CODE_TRANSFER
     flags |= WelcomeFlag::CodeTransfer;
@@ -2148,9 +2148,15 @@ void Profiler::Worker()
     while( s_symbolThreadGone.load() == false ) { YieldThread(); }
 #endif
 
-    // Client is exiting.
 #ifdef TRACY_HAS_SYSTEM_TRACING
-    // Stop filling queues with new data.
+    // On a typical shutdown scenario, the (global) Profiler object is destroyed by
+    // the C++ runtime when the client program returns from "main", and ~Profiler()
+    // takes care of calling StopSystemTracing(). However, a client may decide to
+    // manually RequestShutdown(), in which case ~Profile() may not execute before
+    // this Worker() thread goes through its teardown stages and reaches this point.
+    // To ensure that system tracing does not keep pushing data to the worker queue 
+    // indefinitely (thus preventing this worker from terminating), we have to call
+    // StopSystemTracing() here as well to be safe:
     StopSystemTracing();
 #endif
 

@@ -238,6 +238,10 @@ void WINAPI EventRecordCallbackVsync( PEVENT_RECORD record )
 #endif
 
     const auto& hdr = record->EventHeader;
+
+    // Check for Lost_Event (6a399ae0-4bc6-4de9-870b-3657f8947e7e)
+    if( hdr.ProviderId.Data1 == 0x6A399AE0 ) return;
+
     assert( hdr.ProviderId.Data1 == 0x802EC45A );
     assert( hdr.EventDescriptor.Id == 0x0011 );
 
@@ -610,6 +614,7 @@ void SysTraceGetExternalName( uint64_t thread, const char*& threadName, const ch
 #    include <fcntl.h>
 #    include <inttypes.h>
 #    include <limits>
+#    include <mntent.h>
 #    include <poll.h>
 #    include <stdio.h>
 #    include <stdlib.h>
@@ -774,45 +779,23 @@ static const char* ReadFile( const char* base, const char* path )
 
 static char* GetTraceFsPath()
 {
-    int fd = open( "/proc/mounts", O_RDONLY );
-    if( fd < 0 ) return nullptr;
+    auto f = setmntent( "/proc/mounts", "r" );
+    if( !f ) return nullptr;
 
-    constexpr size_t BufSize = 64 * 1024;
-    auto tmp = (char*)tracy_malloc( BufSize );
-    const auto cnt = read( fd, tmp, BufSize-1 );
-    close( fd );
-    if( cnt < 0 )
+    char* ret = nullptr;
+    while( auto ent = getmntent( f ) )
     {
-        tracy_free( tmp );
-        return nullptr;
-    }
-    tmp[cnt] = '\0';
-
-    auto ptr = tmp;
-    while( *ptr )
-    {
-        if( strncmp( ptr, "tracefs ", 8 ) == 0 )
+        if( strcmp( ent->mnt_fsname, "tracefs" ) == 0 )
         {
-            ptr += 8;
-            auto end = ptr;
-            while( *end && *end != ' ' ) end++;
-            if( !*end )
-            {
-                tracy_free( tmp );
-                return nullptr;
-            }
-            const auto len = end - ptr;
-            auto ret = (char*)tracy_malloc( len+1 );
-            memcpy( ret, ptr, len );
+            auto len = strlen( ent->mnt_dir );
+            ret = (char*)tracy_malloc( len + 1 );
+            memcpy( ret, ent->mnt_dir, len );
             ret[len] = '\0';
-            return ret;
+            break;
         }
-        while( *ptr && *ptr != '\n' ) ptr++;
-        if( *ptr ) ptr++;
     }
-
-    tracy_free( tmp );
-    return nullptr;
+    endmntent( f );
+    return ret;
 }
 
 bool SysTraceStart( int64_t& samplingPeriod )
