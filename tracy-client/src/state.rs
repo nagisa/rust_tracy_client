@@ -54,6 +54,14 @@ impl Client {
         return true; // The client is started in life-before-main (or upon first use in case of
                      // `delayed-init`
     }
+
+    /// Is the client running and a profiler connected?
+    pub fn is_connected() -> bool {
+        #[cfg(not(feature = "enable"))]
+        return false;
+        #[cfg(feature = "enable")]
+        return Self::is_running() && unsafe { sys::___tracy_connected() != 0 };
+    }
 }
 
 impl Clone for Client {
