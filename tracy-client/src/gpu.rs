@@ -323,6 +323,26 @@ impl GpuContext {
         #[cfg(not(feature = "enable"))]
         Ok(GpuSpan { _private: () })
     }
+
+    /// Communicates the current GPU timestamp to Tracy.
+    ///
+    /// Some GPUs (like AMD) will aggressively reset their timing when going into lower power
+    /// states. If your application does not continuously utilize the GPU, this will cause Tracy's
+    /// synchronization of CPU and GPU timestamps to immediately go out of sync, resulting in
+    /// broken GPU span display.
+    ///
+    /// You can use this method to resynchronize CPU and GPU timestamps. Fetch the current GPU
+    /// timestamp, then immediately call this method. It will synchronize the given `gpu_timestamp`
+    /// to the CPU timestamp at the time of this call.
+    pub fn sync_gpu_time(&self, gpu_timestamp: i64) {
+        #[cfg(feature = "enable")]
+        unsafe {
+            sys::___tracy_emit_gpu_time_sync_serial(sys::___tracy_gpu_time_sync_data {
+                gpuTime: gpu_timestamp,
+                context: self.value,
+            });
+        };
+    }
 }
 
 impl GpuSpan {
