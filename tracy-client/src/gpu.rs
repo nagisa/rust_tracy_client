@@ -324,6 +324,104 @@ impl GpuContext {
         Ok(GpuSpan { _private: () })
     }
 
+    /// Begins a new manually tracked GPU span.
+    ///
+    /// You can use this instead of [`GpuContext::span()`] if you'd like to track the GPU span
+    /// manually. `query_id` is the id of the GPU timestamp query that you had created; when the
+    /// GPU timestamp is ready, call [`GpuContext::upload_gpu_timestamp()`] to upload it to Tracy.
+    ///
+    /// This should be called right next to where you record the corresponding GPU timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    pub fn begin_span(&self, span_location: &'static SpanLocation, query_id: u16) {
+        #[cfg(feature = "enable")]
+        // SAFETY: We know that the span location is valid forever as it is 'static. `usize` will
+        // always be smaller than u64, so no data will be lost.
+        unsafe {
+            sys::___tracy_emit_gpu_zone_begin_serial(sys::___tracy_gpu_zone_begin_data {
+                srcloc: std::ptr::addr_of!(span_location.data) as usize as u64,
+                queryId: query_id,
+                context: self.value,
+            });
+        };
+    }
+
+    /// Begins a new manually tracked GPU span with the given name, function, file, and line.
+    ///
+    /// You can use this instead of [`GpuContext::span()`] if you'd like to track the GPU span
+    /// manually.
+    ///
+    /// `query_id` is the id of the GPU timestamp query that you had created; when the GPU
+    /// timestamp is ready, call [`GpuContext::upload_gpu_timestamp()`] to upload it to Tracy.
+    ///
+    /// This should be called right next to where you record the corresponding GPU timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    pub fn begin_span_alloc(
+        &self,
+        name: &str,
+        function: &str,
+        file: &str,
+        line: u32,
+        query_id: u16,
+    ) {
+        #[cfg(feature = "enable")]
+        {
+            let srcloc = unsafe {
+                sys::___tracy_alloc_srcloc_name(
+                    line,
+                    file.as_ptr().cast(),
+                    file.len(),
+                    function.as_ptr().cast(),
+                    function.len(),
+                    name.as_ptr().cast(),
+                    name.len(),
+                    0,
+                )
+            };
+
+            unsafe {
+                sys::___tracy_emit_gpu_zone_begin_alloc_serial(sys::___tracy_gpu_zone_begin_data {
+                    srcloc,
+                    queryId: query_id,
+                    context: self.value,
+                });
+            };
+        }
+    }
+
+    /// Ends a manually tracked GPU span.
+    ///
+    /// Call this to end a span started with [`GpuContext::begin_span()`] or
+    /// [`GpuContext::begin_span_alloc()`].
+    ///
+    /// `query_id` is the id of the GPU timestamp query that you had created; when the
+    /// GPU timestamp is ready, call [`GpuContext::upload_gpu_timestamp()`] to upload it to Tracy.
+    ///
+    /// This should be called right next to where you record the corresponding GPU timestamp. This
+    /// allows tracy to correctly associate the cpu time with the gpu timestamp.
+    pub fn end_span(&self, query_id: u16) {
+        #[cfg(feature = "enable")]
+        unsafe {
+            sys::___tracy_emit_gpu_zone_end_serial(sys::___tracy_gpu_zone_end_data {
+                queryId: query_id,
+                context: self.value,
+            });
+        };
+    }
+
+    /// Uploads a GPU timestamp for a manually tracked span.
+    ///
+    /// Call this to upload the ready GPU timestamp for a query corresponding to `query_id`.
+    pub fn upload_gpu_timestamp(&self, query_id: u16, gpu_timestamp: i64) {
+        #[cfg(feature = "enable")]
+        unsafe {
+            sys::___tracy_emit_gpu_time_serial(sys::___tracy_gpu_time_data {
+                gpuTime: gpu_timestamp,
+                queryId: query_id,
+                context: self.value,
+            });
+        };
+    }
+
     /// Communicates the current GPU timestamp to Tracy.
     ///
     /// Some GPUs (like AMD) will aggressively reset their timing when going into lower power
