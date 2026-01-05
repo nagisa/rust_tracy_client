@@ -40,6 +40,11 @@ mod generated;
 #[cfg(feature = "enable")]
 pub use generated::*;
 
+#[cfg(feature = "enable")]
+mod generated_cuda;
+#[cfg(feature = "enable")]
+pub use generated_cuda::*;
+
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 mod generated_manual_lifetime;
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
