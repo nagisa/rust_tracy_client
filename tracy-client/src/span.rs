@@ -204,73 +204,60 @@ impl Drop for Span {
 /// // A long-form syntax is also available to specify custom source
 /// // locations; all fields are optional.
 /// let location: &'static SpanLocation = span_location! {
-///     name: "another name",
-///     function: "my::fake::function",
-///     file: "path/to/fake/file.rs",
+///     name: c"another name",
+///     function: c"my::fake::function",
+///     file: c"path/to/fake/file.rs",
 ///     line: 42,
 ///     color: 0x99CC66, // in RGB format
 /// };
 /// ```
 #[macro_export]
 macro_rules! span_location {
-    ($name: expr) => {
-        $crate::__span_location_helper!([name $name])
-    };
-    ($($field: ident: $value: expr),* $(,)?) => {
-        $crate::__span_location_helper!($([$field $value])*)
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! __span_location_helper {
-    (
-        $([name $name: expr])?
-        [function $function: expr]
-        $([file $file: expr])?
-        $([line $line: expr])?
-        $([color $color: expr])?
-    ) => {{
-        static LOC: $crate::internal::SpanLocation =
-            $crate::internal::static_span_location(
-                concat!($function, "\0").as_ptr(),
-                $crate::__span_location_helper!(@name $($name)?),
-                $crate::__span_location_helper!(@file $($file)?),
-                $crate::__span_location_helper!(@line $($line)?),
-                $crate::__span_location_helper!(@color $($color)?),
-            );
-        &LOC
-    }};
-
-    (
-        $([name $name: expr])?
-        $([file $file: expr])?
-        $([line $line: expr])?
-        $([color $color: expr])?
-    ) => {{
+    ($name: expr) => {{
         struct S;
         // String processing in `const` when, Oli?
         static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
             $crate::internal::Lazy::new(|| {
-                $crate::internal::make_span_location(
-                    $crate::internal::type_name::<S>(),
-                    $crate::__span_location_helper!(@name $($name)?),
-                    $crate::__span_location_helper!(@file $($file)?),
-                    $crate::__span_location_helper!(@line $($line)?),
-                    $crate::__span_location_helper!(@color $($color)?),
-                )
+                let type_name = $crate::internal::type_name::<S>();
+                $crate::internal::SpanLocationArguments {
+                    function: $crate::internal::CString::new(&type_name[..type_name.len() - 3]).unwrap().into(),
+                    name: concat!($name, "\0").as_ptr(),
+                    file: concat!(file!(), "\0").as_ptr(),
+                    line: line!(),
+                    color: 0
+                }.make()
             });
         &*LOC
     }};
-
-    (@name $name: expr) => { concat!($name, "\0").as_ptr() };
-    (@name) => { $crate::internal::null() };
-    (@file $file: expr) => { concat!($file, "\0").as_ptr() };
-    (@file) => { concat!(file!(), "\0").as_ptr() };
-    (@line $line: expr) => { $line };
-    (@line) => { line!() };
-    (@color $color: expr) => { $color };
-    (@color) => { 0 };
+    ($($field: ident: $value: expr),* $(,)?) => {{
+        struct S;
+        static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
+            $crate::internal::Lazy::new(|| {
+                let type_name = $crate::internal::type_name::<S>();
+                $crate::internal::SpanLocationArguments {
+                    $($field: $crate::span_location!(@internal_field_value $field $value),)*
+                    ..$crate::internal::SpanLocationArguments {
+                        function: $crate::internal::CString::new(&type_name[..type_name.len() - 3]).unwrap().into(),
+                        name: $crate::internal::null(),
+                        file: concat!(file!(), "\0").as_ptr(),
+                        line: line!(),
+                        color: 0,
+                    }
+                }.make()
+            });
+        &LOC
+    }};
+    (@internal_field_value function $value:expr) => {
+        $crate::internal::Cow::<'static, $crate::internal::CStr>::from($value)
+    };
+    (@internal_field_value name $value:expr) => {
+        $crate::internal::CStr::as_ptr($value).cast()
+    };
+    (@internal_field_value file $value:expr) => {
+        $crate::internal::CStr::as_ptr($value).cast()
+    };
+    (@internal_field_value color $value:expr) => { $value };
+    (@internal_field_value line $value:expr) => { $value };
 }
 
 /// Start a new Tracy span with function, file, and line determined automatically.

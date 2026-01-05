@@ -52,7 +52,8 @@ pub mod internal {
     pub use crate::{span::SpanLocation, sys};
     pub use once_cell::sync::Lazy;
     pub use std::any::type_name;
-    use std::ffi::CString;
+    pub use std::borrow::Cow;
+    pub use std::ffi::{CStr, CString};
     pub use std::ptr::null;
 
     #[cfg(feature = "demangle")]
@@ -60,56 +61,34 @@ pub mod internal {
         pub use crate::demangle::{default, internal::implementation};
     }
 
-    #[inline(always)]
-    #[must_use]
-    pub fn make_span_location(
-        type_name: &'static str,
-        span_name: *const u8,
-        file: *const u8,
-        line: u32,
-        color: u32,
-    ) -> SpanLocation {
-        #[cfg(feature = "enable")]
-        {
-            let function_name = CString::new(&type_name[..type_name.len() - 3]).unwrap();
-            SpanLocation {
-                data: sys::___tracy_source_location_data {
-                    name: span_name.cast(),
-                    // Leak the string; `make_span_location` is only used inside `static`s.
-                    function: function_name.into_raw().cast(),
-                    file: file.cast(),
-                    line,
-                    color,
-                },
-            }
-        }
-        #[cfg(not(feature = "enable"))]
-        crate::SpanLocation { _internal: () }
+    pub struct SpanLocationArguments {
+        pub function: std::borrow::Cow<'static, CStr>,
+        pub name: *const u8,
+        pub file: *const u8,
+        pub line: u32,
+        pub color: u32,
     }
 
-    #[inline(always)]
-    #[must_use]
-    pub const fn static_span_location(
-        function: *const u8,
-        name: *const u8,
-        file: *const u8,
-        line: u32,
-        color: u32,
-    ) -> SpanLocation {
-        #[cfg(feature = "enable")]
-        {
-            SpanLocation {
-                data: sys::___tracy_source_location_data {
-                    name: name.cast(),
-                    function: function.cast(),
-                    file: file.cast(),
-                    line,
-                    color,
-                },
+    impl SpanLocationArguments {
+        #[inline(always)]
+        #[must_use]
+        pub fn make(self) -> SpanLocation {
+            #[cfg(feature = "enable")]
+            {
+                SpanLocation {
+                    data: sys::___tracy_source_location_data {
+                        name: self.name.cast(),
+                        // Leak the string; `make_span_location` is only used inside `static`s.
+                        function: self.function.as_ptr().cast(),
+                        file: self.file.cast(),
+                        line: self.line,
+                        color: self.color,
+                    },
+                }
             }
+            #[cfg(not(feature = "enable"))]
+            crate::SpanLocation { _internal: () }
         }
-        #[cfg(not(feature = "enable"))]
-        crate::SpanLocation { _internal: () }
     }
 
     #[inline(always)]
