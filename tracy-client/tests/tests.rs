@@ -103,6 +103,23 @@ fn nameless_span() {
     set_thread_name!("test thread");
 }
 
+fn custom_location() {
+    let _ = span_location! {
+        name: c"hello",
+        function: c"custom_location",
+        file: c"tests.rs",
+        color: 0x00ff00,
+        line: 42,
+    };
+    // A different order of fields…
+    let _ = span_location! {
+        line: 42,
+        file: c"tests.rs",
+        color: 0x00ff00,
+        name: c"hello",
+    };
+}
+
 fn gpu() {
     let client = Client::start();
 
@@ -145,6 +162,7 @@ fn main() {
         allocations();
         tls_confusion();
         nameless_span();
+        custom_location();
         let thread = std::thread::spawn(|| {
             let _client = Client::start();
             fib(25);
