@@ -319,6 +319,25 @@ struct TracyEventFieldVisitor<'a> {
     first: bool,
 }
 
+impl TracyEventFieldVisitor<'_> {
+    fn write_field_prefix(&mut self, field: &Field, value_len: usize) {
+        let name = field.name();
+        if self.first {
+            self.first = false;
+            if name == "message" {
+                return;
+            }
+            self.dest.reserve(name.len() + " = ".len() + value_len);
+        } else {
+            self.dest
+                .reserve(", ".len() + name.len() + " = ".len() + value_len);
+            self.dest.push_str(", ");
+        }
+        self.dest.push_str(name);
+        self.dest.push_str(" = ");
+    }
+}
+
 impl Visit for TracyEventFieldVisitor<'_> {
     fn record_bool(&mut self, field: &Field, value: bool) {
         match (value, field.name()) {
@@ -329,30 +348,15 @@ impl Visit for TracyEventFieldVisitor<'_> {
     }
 
     fn record_str(&mut self, field: &Field, value: &str) {
-        let name = field.name();
-        let alloc_always_size = name.len() + " = ".len() + value.len();
-        if self.first {
-            self.dest.reserve(alloc_always_size);
-            self.first = false;
-        } else {
-            self.dest.reserve(", ".len() + alloc_always_size);
-            self.dest.push_str(", ");
-        }
-
-        self.dest.push_str(name);
-        self.dest.push_str(" = ");
+        self.write_field_prefix(field, value.len());
         self.dest.push_str(value);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
         // FIXME: this is a very crude formatter, but we don’t have
         // an easy way to do anything better...
-        if self.first {
-            self.first = false;
-            let _ = write!(self.dest, "{} = {value:?}", field.name());
-        } else {
-            let _ = write!(self.dest, ", {} = {value:?}", field.name());
-        }
+        self.write_field_prefix(field, 0);
+        let _ = write!(self.dest, "{value:?}");
     }
 }
 
