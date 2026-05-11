@@ -95,10 +95,12 @@ impl<C> TracyLayer<C> {
     /// Defaults to collecting stack traces.
     #[must_use]
     pub fn new(config: C) -> Self {
-        Self {
-            config,
-            client: Client::start(),
-        }
+        let client = Client::start();
+
+        // Just to see how CUDA profiling works
+        unsafe { sys::tracy_CUDACtx_StartProfiling(sys::tracy_CUDACtx_Create()) };
+
+        Self { config, client }
     }
 }
 
