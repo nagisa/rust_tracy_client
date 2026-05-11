@@ -3,7 +3,7 @@ use crate::Client;
 /// Name of a plot.
 ///
 /// Create with the [`plot_name!`](crate::plot_name) macro.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PlotName(pub(crate) &'static str);
 
 /// The format of a plot to be shown in the Tracy profiler UI.
