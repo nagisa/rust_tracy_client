@@ -3,6 +3,13 @@ pub const TracyPlotFormatEnum_TracyPlotFormatMemory: TracyPlotFormatEnum = 1;
 pub const TracyPlotFormatEnum_TracyPlotFormatPercentage: TracyPlotFormatEnum = 2;
 pub const TracyPlotFormatEnum_TracyPlotFormatWatt: TracyPlotFormatEnum = 3;
 type TracyPlotFormatEnum = ::std::os::raw::c_uint;
+pub const TracyMessageSeverity_TracyMessageSeverityTrace: TracyMessageSeverity = 0;
+pub const TracyMessageSeverity_TracyMessageSeverityDebug: TracyMessageSeverity = 1;
+pub const TracyMessageSeverity_TracyMessageSeverityInfo: TracyMessageSeverity = 2;
+pub const TracyMessageSeverity_TracyMessageSeverityWarning: TracyMessageSeverity = 3;
+pub const TracyMessageSeverity_TracyMessageSeverityError: TracyMessageSeverity = 4;
+pub const TracyMessageSeverity_TracyMessageSeverityFatal: TracyMessageSeverity = 5;
+type TracyMessageSeverity = ::std::os::raw::c_uint;
 extern "C" {
     pub fn ___tracy_set_thread_name(name: *const ::std::os::raw::c_char);
 }
@@ -403,7 +410,13 @@ fn bindgen_test_layout____tracy_gpu_time_sync_data() {
 pub struct __tracy_lockable_context_data {
     _unused: [u8; 0],
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __tracy_shared_lockable_context_data {
+    _unused: [u8; 0],
+}
 type TracyCZoneCtx = ___tracy_c_zone_context;
+type TracyCSharedLockCtx = *mut __tracy_shared_lockable_context_data;
 extern "C" {
     pub fn ___tracy_alloc_srcloc(
         line: u32,
@@ -460,11 +473,17 @@ extern "C" {
     );
 }
 extern "C" {
+    pub fn ___tracy_emit_zone_text_fmt(ctx: TracyCZoneCtx, fmt: *const ::std::os::raw::c_char, ...);
+}
+extern "C" {
     pub fn ___tracy_emit_zone_name(
         ctx: TracyCZoneCtx,
         txt: *const ::std::os::raw::c_char,
         size: usize,
     );
+}
+extern "C" {
+    pub fn ___tracy_emit_zone_name_fmt(ctx: TracyCZoneCtx, fmt: *const ::std::os::raw::c_char, ...);
 }
 extern "C" {
     pub fn ___tracy_emit_zone_color(ctx: TracyCZoneCtx, color: u32);
@@ -542,31 +561,25 @@ extern "C" {
     pub fn ___tracy_connected() -> i32;
 }
 extern "C" {
-    pub fn ___tracy_emit_memory_alloc(ptr: *const ::std::os::raw::c_void, size: usize, secure: i32);
+    pub fn ___tracy_emit_memory_alloc(ptr: *const ::std::os::raw::c_void, size: usize);
 }
 extern "C" {
     pub fn ___tracy_emit_memory_alloc_callstack(
         ptr: *const ::std::os::raw::c_void,
         size: usize,
         depth: i32,
-        secure: i32,
     );
 }
 extern "C" {
-    pub fn ___tracy_emit_memory_free(ptr: *const ::std::os::raw::c_void, secure: i32);
+    pub fn ___tracy_emit_memory_free(ptr: *const ::std::os::raw::c_void);
 }
 extern "C" {
-    pub fn ___tracy_emit_memory_free_callstack(
-        ptr: *const ::std::os::raw::c_void,
-        depth: i32,
-        secure: i32,
-    );
+    pub fn ___tracy_emit_memory_free_callstack(ptr: *const ::std::os::raw::c_void, depth: i32);
 }
 extern "C" {
     pub fn ___tracy_emit_memory_alloc_named(
         ptr: *const ::std::os::raw::c_void,
         size: usize,
-        secure: i32,
         name: *const ::std::os::raw::c_char,
     );
 }
@@ -575,14 +588,12 @@ extern "C" {
         ptr: *const ::std::os::raw::c_void,
         size: usize,
         depth: i32,
-        secure: i32,
         name: *const ::std::os::raw::c_char,
     );
 }
 extern "C" {
     pub fn ___tracy_emit_memory_free_named(
         ptr: *const ::std::os::raw::c_void,
-        secure: i32,
         name: *const ::std::os::raw::c_char,
     );
 }
@@ -590,43 +601,30 @@ extern "C" {
     pub fn ___tracy_emit_memory_free_callstack_named(
         ptr: *const ::std::os::raw::c_void,
         depth: i32,
-        secure: i32,
         name: *const ::std::os::raw::c_char,
     );
 }
 extern "C" {
-    pub fn ___tracy_emit_memory_discard(name: *const ::std::os::raw::c_char, secure: i32);
+    pub fn ___tracy_emit_memory_discard(name: *const ::std::os::raw::c_char);
 }
 extern "C" {
-    pub fn ___tracy_emit_memory_discard_callstack(
-        name: *const ::std::os::raw::c_char,
-        secure: i32,
-        depth: i32,
-    );
+    pub fn ___tracy_emit_memory_discard_callstack(name: *const ::std::os::raw::c_char, depth: i32);
 }
 extern "C" {
-    pub fn ___tracy_emit_message(
-        txt: *const ::std::os::raw::c_char,
+    pub fn ___tracy_emit_logString(
+        severity: i8,
+        color: i32,
+        callstack_depth: i32,
         size: usize,
-        callstack_depth: i32,
+        txt: *const ::std::os::raw::c_char,
     );
 }
 extern "C" {
-    pub fn ___tracy_emit_messageL(txt: *const ::std::os::raw::c_char, callstack_depth: i32);
-}
-extern "C" {
-    pub fn ___tracy_emit_messageC(
-        txt: *const ::std::os::raw::c_char,
-        size: usize,
-        color: u32,
+    pub fn ___tracy_emit_logStringL(
+        severity: i8,
+        color: i32,
         callstack_depth: i32,
-    );
-}
-extern "C" {
-    pub fn ___tracy_emit_messageLC(
         txt: *const ::std::os::raw::c_char,
-        color: u32,
-        callstack_depth: i32,
     );
 }
 extern "C" {
@@ -705,8 +703,76 @@ extern "C" {
     );
 }
 extern "C" {
-    pub fn ___tracy_begin_sampling_profiler() -> ::std::os::raw::c_int;
+    pub fn ___tracy_announce_shared_lockable_ctx(
+        srcloc: *const ___tracy_source_location_data,
+    ) -> *mut __tracy_shared_lockable_context_data;
 }
 extern "C" {
-    pub fn ___tracy_end_sampling_profiler();
+    pub fn ___tracy_terminate_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_before_lock_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    ) -> i32;
+}
+extern "C" {
+    pub fn ___tracy_after_lock_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_after_unlock_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_after_try_lock_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+        acquired: i32,
+    );
+}
+extern "C" {
+    pub fn ___tracy_before_lock_shared_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    ) -> i32;
+}
+extern "C" {
+    pub fn ___tracy_after_lock_shared_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_after_unlock_shared_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_after_try_lock_shared_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+        acquired: i32,
+    );
+}
+extern "C" {
+    pub fn ___tracy_mark_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+        srcloc: *const ___tracy_source_location_data,
+    );
+}
+extern "C" {
+    pub fn ___tracy_custom_name_shared_lockable_ctx(
+        lockdata: *mut __tracy_shared_lockable_context_data,
+        name: *const ::std::os::raw::c_char,
+        nameSz: usize,
+    );
+}
+extern "C" {
+    pub fn ___tracy_begin_sampling_profiling() -> ::std::os::raw::c_int;
+}
+extern "C" {
+    pub fn ___tracy_end_sampling_profiling();
+}
+extern "C" {
+    pub fn ___tracy_get_time() -> i64;
 }
