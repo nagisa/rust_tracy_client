@@ -4,29 +4,13 @@ pub struct ___tracy_c_zone_context {
     pub id: u32,
     pub active: i32,
 }
-#[test]
-fn bindgen_test_layout____tracy_c_zone_context() {
-    const UNINIT: ::std::mem::MaybeUninit<___tracy_c_zone_context> =
-        ::std::mem::MaybeUninit::uninit();
-    let ptr = UNINIT.as_ptr();
-    assert_eq!(
-        ::std::mem::size_of::<___tracy_c_zone_context>(),
-        8usize,
-        "Size of ___tracy_c_zone_context"
-    );
-    assert_eq!(
-        ::std::mem::align_of::<___tracy_c_zone_context>(),
-        4usize,
-        "Alignment of ___tracy_c_zone_context"
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).id) as usize - ptr as usize },
-        0usize,
-        "Offset of field: ___tracy_c_zone_context::id"
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).active) as usize - ptr as usize },
-        4usize,
-        "Offset of field: ___tracy_c_zone_context::active"
-    );
-}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ___tracy_c_zone_context"][::std::mem::size_of::<___tracy_c_zone_context>() - 8usize];
+    ["Alignment of ___tracy_c_zone_context"]
+        [::std::mem::align_of::<___tracy_c_zone_context>() - 4usize];
+    ["Offset of field: ___tracy_c_zone_context::id"]
+        [::std::mem::offset_of!(___tracy_c_zone_context, id) - 0usize];
+    ["Offset of field: ___tracy_c_zone_context::active"]
+        [::std::mem::offset_of!(___tracy_c_zone_context, active) - 4usize];
+};
