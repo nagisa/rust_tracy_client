@@ -4,3 +4,6 @@ extern "C" {
 extern "C" {
     pub fn ___tracy_shutdown_profiler();
 }
+extern "C" {
+    pub fn ___tracy_profiler_started() -> i32;
+}

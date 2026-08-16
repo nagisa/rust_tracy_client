@@ -40,6 +40,16 @@ mod generated;
 #[cfg(feature = "enable")]
 pub use generated::*;
 
+#[cfg(all(feature = "enable", feature = "ondemand"))]
+mod generated_on_demand;
+#[cfg(all(feature = "enable", feature = "ondemand"))]
+pub use generated_on_demand::*;
+
+#[cfg(all(feature = "enable", not(feature = "ondemand")))]
+mod generated_not_on_demand;
+#[cfg(all(feature = "enable", not(feature = "ondemand")))]
+pub use generated_not_on_demand::*;
+
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
 mod generated_manual_lifetime;
 #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
