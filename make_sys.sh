@@ -38,12 +38,27 @@ bindgen -o "tracy-client-sys/src/generated.rs" \
   --allowlist-function='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --allowlist-type='.*[Tt][Rr][Aa][Cc][Yy].*' \
   --blocklist-type='TracyCLockCtx' \
+  --blocklist-type='TracyCSharedLockCtx' \
+  --blocklist-type='___tracy_c_zone_context' \
+  --raw-line='use crate::___tracy_c_zone_context;' \
   ${COMMON_BINDGEN_PARAMS[@]}
+
+bindgen -o "tracy-client-sys/src/generated_not_on_demand.rs" \
+  --rust-target 1.70.0 \
+  --allowlist-type='___tracy_c_zone_context' \
+  ${COMMON_BINDGEN_PARAMS[@]} \
+
+bindgen -o "tracy-client-sys/src/generated_on_demand.rs" \
+  --rust-target 1.70.0 \
+  --allowlist-type='___tracy_c_zone_context' \
+  ${COMMON_BINDGEN_PARAMS[@]} \
+  -DTRACY_ON_DEMAND
 
 bindgen -o "tracy-client-sys/src/generated_manual_lifetime.rs" \
   --rust-target 1.70.0 \
   --allowlist-function='___tracy_startup_profiler' \
   --allowlist-function='___tracy_shutdown_profiler' \
+  --allowlist-function='___tracy_profiler_started' \
   ${COMMON_BINDGEN_PARAMS[@]} \
   -DTRACY_MANUAL_LIFETIME
 
