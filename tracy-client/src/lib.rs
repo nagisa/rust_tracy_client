@@ -139,8 +139,13 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let stack_depth = adjust_stack_depth(callstack_depth).into();
-            let () =
-                sys::___tracy_emit_message(message.as_ptr().cast(), message.len(), stack_depth);
+            let () = sys::___tracy_emit_logString(
+                sys::TracyMessageSeverity_TracyMessageSeverityInfo as i8,
+                0,
+                stack_depth,
+                message.len(),
+                message.as_ptr().cast(),
+            );
         }
     }
 
@@ -156,11 +161,12 @@ impl Client {
         #[cfg(feature = "enable")]
         unsafe {
             let depth = adjust_stack_depth(callstack_depth).into();
-            let () = sys::___tracy_emit_messageC(
-                message.as_ptr().cast(),
-                message.len(),
-                rgba >> 8,
+            let () = sys::___tracy_emit_logString(
+                sys::TracyMessageSeverity_TracyMessageSeverityInfo as i8,
+                (rgba >> 8) as i32,
                 depth,
+                message.len(),
+                message.as_ptr().cast(),
             );
         }
     }
@@ -235,10 +241,9 @@ impl<T> ProfiledAllocator<T> {
         unsafe {
             Client::start();
             if self.1 == 0 {
-                let () = sys::___tracy_emit_memory_alloc(ptr.cast(), size, 1);
+                let () = sys::___tracy_emit_memory_alloc(ptr.cast(), size);
             } else {
-                let () =
-                    sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into(), 1);
+                let () = sys::___tracy_emit_memory_alloc_callstack(ptr.cast(), size, self.1.into());
             }
         }
     }
@@ -247,9 +252,9 @@ impl<T> ProfiledAllocator<T> {
         #[cfg(feature = "enable")]
         unsafe {
             if self.1 == 0 {
-                let () = sys::___tracy_emit_memory_free(ptr.cast(), 1);
+                let () = sys::___tracy_emit_memory_free(ptr.cast());
             } else {
-                let () = sys::___tracy_emit_memory_free_callstack(ptr.cast(), self.1.into(), 1);
+                let () = sys::___tracy_emit_memory_free_callstack(ptr.cast(), self.1.into());
             }
         }
     }
