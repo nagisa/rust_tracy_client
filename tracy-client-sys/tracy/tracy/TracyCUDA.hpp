@@ -23,7 +23,6 @@ using CUDACtx = std::nullptr_t;
 #error "CUDA v12.4 (or later) is required by TracyCUDA.hpp"
 #endif
 
-#include <cassert>
 #include <cmath>
 #include <string>
 #include <string.h>
@@ -40,6 +39,7 @@ using CUDACtx = std::nullptr_t;
 #include <cxxabi.h>
 #endif
 
+#include "../common/TracyAssert.hpp"
 #include "Tracy.hpp"
 
 #ifndef UNREFERENCED
@@ -121,7 +121,7 @@ TracyTimestamp tracyFromCUpti(CUptiTimestamp cuptiTime) {
     auto [slope, intercept] = getCachedRegressionParameters();
     double y_hat = slope * cuptiTime + intercept;
     TracyTimestamp tracyTime = TracyTimestamp(y_hat);
-    assert(tracyTime >= 0);
+    TRACY_ASSERT(tracyTime >= 0);
     return tracyTime;
 }
 
@@ -210,7 +210,7 @@ void tracyEmitMemAlloc(const char* name, const void* ptr, size_t size, TracyTime
     }
     else
     {
-        assert(sizeof(size) == 8);
+        TRACY_ASSERT(sizeof(size) == 8);
         memcpy(&item->memAlloc.size, &size, 4);
         memcpy(((char *)&item->memAlloc.size) + 4, ((char *)&size) + 4, 2);
     }
@@ -294,7 +294,7 @@ CUptiResult CUptiCallChecked(CUptiResult result, const char* call, const char* f
     const char* resultMsg = "";
     CUPTI_API_CALL(cuptiGetResultString(result, &resultMsg));   // maybe not a good idea to recurse here...
     fprintf(stderr, "ERROR:\t%s:%d:\n\tfunction '%s' failed with error '%s'.\n", file, line, call, resultMsg);
-    //assert(result == CUPTI_SUCCESS);
+    //TRACY_ASSERT(result == CUPTI_SUCCESS);
     return result;
 }
 
@@ -304,7 +304,7 @@ CUresult cudaDriverCallChecked(CUresult result, const char* call, const char* fi
     const char* resultMsg = "";
     DRIVER_API_CALL(cuGetErrorString(result, &resultMsg));   // maybe not a good idea to recurse here...
     fprintf(stderr, "ERROR:\t%s:%d:\n\tfunction '%s' failed with error '%s'.\n", file, line, call, resultMsg);
-    //assert(result == CUDA_SUCCESS);
+    //TRACY_ASSERT(result == CUDA_SUCCESS);
     return result;
 }
 
@@ -416,7 +416,7 @@ struct StringTable {
             }
             memoized = it->second;
         }
-        assert(str == memoized);
+        TRACY_ASSERT(str == memoized);
         return memoized;
     }
 };
@@ -439,8 +439,8 @@ struct SourceLocationMap {
 
     tracy::SourceLocationData* add(std::string_view function, std::string_view file, int line, uint32_t color=0) {
         ZoneNamed(emplace, instrument);
-        assert(*function.end() == '\0');
-        assert(*file.end() == '\0');
+        TRACY_ASSERT(*function.end() == '\0');
+        TRACY_ASSERT(*file.end() == '\0');
         void* bytes = tracyMalloc(sizeof(tracy::SourceLocationData));
         auto pSrcLoc = new(bytes)tracy::SourceLocationData{ function.data(), TracyFunction, file.data(), (uint32_t)line, color };
         auto [it, inserted] = locations.emplace(function, pSrcLoc);
@@ -448,7 +448,7 @@ struct SourceLocationMap {
             // another thread inserted it while we were trying to: cleanup
             tracyFree(pSrcLoc); // POD: no destructor to call
         }
-        assert(it->second != nullptr);
+        TRACY_ASSERT(it->second != nullptr);
         return it->second;
     }
 };
@@ -491,8 +491,8 @@ struct SourceLocationLUT {
 uint32_t tracyTimelineId(uint32_t contextId, uint32_t streamId) {
     // 0xA7C5 = 42,949 => 42,949 * 100,000 = 4,294,900,000
     // 4,294,900,000 + 65,535  = 4,294,965,535 < 4,294,967,295 (max uint32)
-    assert(contextId <= 0xA7C5);
-    assert((streamId == CUPTI_INVALID_STREAM_ID) || (streamId < 0xFFFF));
+    TRACY_ASSERT(contextId <= 0xA7C5);
+    TRACY_ASSERT((streamId == CUPTI_INVALID_STREAM_ID) || (streamId < 0xFFFF));
     uint32_t packed = (contextId * 100'000) + (streamId & 0x0000'FFFF);
     return packed;
 }
@@ -508,7 +508,7 @@ namespace tracy
             auto& s = Singleton::Get();
             std::unique_lock<std::mutex> lock (s.m);
             if (s.ref_count == 0) {
-                assert(s.ctx == nullptr);
+                TRACY_ASSERT(s.ctx == nullptr);
                 s.ctx = new CUDACtx(s.ctx_id);
                 s.ref_count += 1;
                 s.ctx_id = s.ctx->m_tracyGpuContext;
@@ -519,7 +519,7 @@ namespace tracy
         static void Destroy(CUDACtx* ctx) {
             auto& s = Singleton::Get();
             std::unique_lock<std::mutex> lock(s.m);
-            assert(ctx == s.ctx);
+            TRACY_ASSERT(ctx == s.ctx);
             s.ref_count -= 1;
             if (s.ref_count == 0) {
                 delete s.ctx;
@@ -576,7 +576,7 @@ namespace tracy
 
             auto item = Profiler::QueueSerial();
             tracyMemWrite(item->hdr.type, QueueType::GpuContextName);
-            tracyMemWrite(item->gpuContextNameFat.context, m_tracyGpuContext);
+            tracyMemWrite(item->gpuContextNameFat.context, (uint8_t)m_tracyGpuContext);
             tracyMemWrite(item->gpuContextNameFat.ptr, (uint64_t)ptr);
             tracyMemWrite(item->gpuContextNameFat.size, len);
             SubmitQueueItem(item);
@@ -623,7 +623,7 @@ namespace tracy
                 tracyMemWrite(item->gpuCalibration.gpuTime, (int64_t)tCUpti);
                 tracyMemWrite(item->gpuCalibration.cpuTime, tTracy);
                 tracyMemWrite(item->gpuCalibration.cpuDelta, deltaTicksCUpti);
-                tracyMemWrite(item->gpuCalibration.context, m_tracyGpuContext);
+                tracyMemWrite(item->gpuCalibration.context, (uint8_t)m_tracyGpuContext);
                 Profiler::QueueSerialFinish();
             }
             #endif
@@ -644,8 +644,8 @@ namespace tracy
             //uint32_t timelineId = tracy::GetThreadHandle();
             uint32_t timelineId = tracyTimelineId(cudaContextId, cudaStreamId);
             uint16_t queryId = m_queryIdGen.fetch_add(2);
-            tracyAnnounceGpuTimestamp(apiStart, apiEnd, queryId, m_tracyGpuContext, pSrcLoc, timelineId);
-            tracySubmitGpuTimestamp(gpuStart, gpuEnd, queryId, m_tracyGpuContext);
+            tracyAnnounceGpuTimestamp(apiStart, apiEnd, queryId, (uint8_t)m_tracyGpuContext, pSrcLoc, timelineId);
+            tracySubmitGpuTimestamp(gpuStart, gpuEnd, queryId, (uint8_t)m_tracyGpuContext);
         }
 
         void OnEventsProcessed() {
@@ -663,7 +663,7 @@ namespace tracy
             // should return as quickly as possible from these callbacks."
             *size = 1 * 1024*1024; // 1MB
             *buffer = (uint8_t*)tracyMalloc(*size);
-            assert(*buffer != nullptr);
+            TRACY_ASSERT(*buffer != nullptr);
             FlushActivityAsync();
         }
 
@@ -708,7 +708,7 @@ namespace tracy
             }
             size_t dropped = 0;
             CUPTI_API_CALL(cuptiActivityGetNumDroppedRecords(ctx, streamId, &dropped));
-            assert(dropped == 0);
+            TRACY_ASSERT(dropped == 0);
             tracyFree(buffer);
 
             // Retire cudaGraphCurrentLaunch entries for destroyed exec handles.
@@ -924,7 +924,7 @@ namespace tracy
                     cudaCallSiteInfo.emplace(apiInfo->correlationId, APICallInfo{ apiCallStartTime, apiCallStartTime, tgpu, profilerHost });
                 }
                 auto& entryFlags = *apiInfo->correlationData;
-                assert(entryFlags == 0);
+                TRACY_ASSERT(entryFlags == 0);
                 entryFlags |= trackDeviceActivity ? 0x8000 : 0;
 
                 // On graph exec destruction, record the graphId for deferred
@@ -984,7 +984,7 @@ namespace tracy
                 return false;
             }
             cudaCallSiteInfo.erase(correlationId);
-            assert(apiCallInfo.host != nullptr);
+            TRACY_ASSERT(apiCallInfo.host != nullptr);
             return true;
         }
 
@@ -1410,17 +1410,17 @@ namespace tracy
 
         };
 
-        CUDACtx(uint8_t gpuContextID = 255)
+        CUDACtx(int32_t gpuContextID = InvalidGpuContextId)
         {
             ZoneScoped;
 
-            if (gpuContextID != 255) {
+            if (gpuContextID != InvalidGpuContextId) {
                 m_tracyGpuContext = gpuContextID;
                 return;
             }
 
-            m_tracyGpuContext = GetGpuCtxCounter().fetch_add(1, std::memory_order_relaxed);
-            assert(m_tracyGpuContext != 255);
+            m_tracyGpuContext = NextGpuContextId();
+            TRACY_ASSERT(m_tracyGpuContext != InvalidGpuContextId);
 
             TracyTimestamp tTracy;
             CUptiTimestamp tCUpti;
@@ -1434,7 +1434,7 @@ namespace tracy
             tracyMemWrite(item->gpuNewContext.thread, (uint32_t)0);
             tracyMemWrite(item->gpuNewContext.period, 1.0f);
             tracyMemWrite(item->gpuNewContext.type, GpuContextType::CUDA);
-            tracyMemWrite(item->gpuNewContext.context, m_tracyGpuContext);
+            tracyMemWrite(item->gpuNewContext.context, (uint8_t)m_tracyGpuContext);
             #if TRACY_CUDA_CALIBRATED_CONTEXT
             tracyMemWrite(item->gpuNewContext.flags, GpuContextCalibration);
             #else
@@ -1470,7 +1470,7 @@ namespace tracy
             CUDACtx* ctx = nullptr;
             std::mutex m;
             int ref_count = 0;
-            uint8_t ctx_id = 255;
+            int32_t ctx_id = InvalidGpuContextId;
             static Singleton& Get() {
                 static Singleton singleton;
                 return singleton;
@@ -1481,7 +1481,7 @@ namespace tracy
         ProfilerStats stats = {};
         #endif
 
-        uint8_t m_tracyGpuContext = 255;
+        int32_t m_tracyGpuContext = InvalidGpuContextId;
         static constexpr size_t cacheline = 64;
         alignas(cacheline) std::atomic<uint16_t> m_queryIdGen = 0;
     };

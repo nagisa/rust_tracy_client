@@ -1,3 +1,4 @@
+#include "../common/TracyAssert.hpp"
 #include "../server/tracy_robin_hood.h"
 #include "TracyProfiler.hpp"
 #include "TracyThread.hpp"
@@ -79,14 +80,9 @@ uint8_t gpu_context_allocate( ToolData* data )
     float timestamp_period = 1.0f;
     data->previous_cpu_time = cpu_timestamp;
 
-    // Allocate the process-unique GPU context ID. There's a max of 255 available;
-    // if we are recreating devices a lot we may exceed that. Don't do that, or
-    // wrap around and get weird (but probably still usable) numbers.
-    uint8_t context_id = tracy::GetGpuCtxCounter().fetch_add( 1, std::memory_order_relaxed );
-    if( context_id >= 255 )
-    {
-        context_id %= 255;
-    }
+    // Allocate the process-unique GPU context ID. There's a max of 256 available
+    // (ids are 8-bit); if we are recreating devices a lot we may exceed that.
+    uint8_t context_id = uint8_t( tracy::NextGpuContextId() );
 
     uint8_t context_flags = 0;
 #ifdef TRACY_ROCPROF_CALIBRATION
@@ -243,7 +239,7 @@ void record_callback( rocprofiler_dispatch_counting_service_data_t dispatch_data
                       rocprofiler_record_counter_t* record_data, size_t record_count,
                       rocprofiler_user_data_t /*user_data*/, void* callback_data )
 {
-    assert( callback_data != nullptr );
+    TRACY_ASSERT( callback_data != nullptr );
     ToolData* data = static_cast<ToolData*>( callback_data );
     if( !data->init ) return;
 
@@ -262,7 +258,7 @@ void record_callback( rocprofiler_dispatch_counting_service_data_t dispatch_data
         auto _lk = std::unique_lock{ data->mut };
         // An assumption is made here that the counter values are supplied after the dispatch
         // complete callback.
-        assert( data->dispatch_data.count( dispatch_data.dispatch_info.dispatch_id ) );
+        TRACY_ASSERT( data->dispatch_data.count( dispatch_data.dispatch_info.dispatch_id ) );
         DispatchData& ddata = data->dispatch_data[dispatch_data.dispatch_info.dispatch_id];
         query_id = ddata.query_id;
         thread_id = ddata.thread_id;
@@ -290,7 +286,7 @@ void dispatch_callback( rocprofiler_dispatch_counting_service_data_t dispatch_da
                         rocprofiler_profile_config_id_t* config, rocprofiler_user_data_t* /*user_data*/,
                         void* callback_data )
 {
-    assert( callback_data != nullptr );
+    TRACY_ASSERT( callback_data != nullptr );
     ToolData* data = static_cast<ToolData*>( callback_data );
     if( !data->init ) return;
 
@@ -384,7 +380,7 @@ void dispatch_callback( rocprofiler_dispatch_counting_service_data_t dispatch_da
 void tool_callback_tracing_callback( rocprofiler_callback_tracing_record_t record, rocprofiler_user_data_t* user_data,
                                      void* callback_data )
 {
-    assert( callback_data != nullptr );
+    TRACY_ASSERT( callback_data != nullptr );
     ToolData* data = static_cast<ToolData*>( callback_data );
 
     // Kernel symbol registrations happen at HIP init time, before any Tracy

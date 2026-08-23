@@ -1,7 +1,6 @@
 #ifndef __TRACYPROFILER_HPP__
 #define __TRACYPROFILER_HPP__
 
-#include <assert.h>
 #include <atomic>
 #include <condition_variable>
 #include <stdarg.h>
@@ -20,6 +19,7 @@
 #include "../common/TracyQueue.hpp"
 #include "../common/TracyAlign.hpp"
 #include "../common/TracyAlloc.hpp"
+#include "../common/TracyAssert.hpp"
 #include "../common/TracyFormat.h"
 #include "../common/TracyMutex.hpp"
 #include "../common/TracyProtocol.hpp"
@@ -91,11 +91,13 @@ struct GpuCtxWrapper
     GpuCtx* ptr;
 };
 
-TRACY_API moodycamel::ConcurrentQueue<QueueItem>::ExplicitProducer* GetToken();
+TRACY_API moodycamel::ConcurrentQueue<QueueItem>::ExplicitProducer* MANGLED_NAME_BASED_ON_CONFIG(GetToken)();
+tracy_force_inline moodycamel::ConcurrentQueue<QueueItem>::ExplicitProducer* GetToken() { return MANGLED_NAME_BASED_ON_CONFIG(GetToken)(); }
 TRACY_API Profiler& MANGLED_NAME_BASED_ON_CONFIG(GetProfiler)();
 tracy_force_inline Profiler& GetProfiler() { return MANGLED_NAME_BASED_ON_CONFIG(GetProfiler)(); }
 TRACY_API std::atomic<uint32_t>& GetLockCounter();
-TRACY_API std::atomic<uint8_t>& GetGpuCtxCounter();
+TRACY_API std::atomic<uint32_t>& GetGpuCtxCounter();
+TRACY_API int32_t NextGpuContextId();
 TRACY_API GpuCtxWrapper& GetGpuCtx();
 TRACY_API uint32_t GetThreadHandle();
 TRACY_API bool ProfilerAvailable();
@@ -131,8 +133,38 @@ struct SourceLocationData
 #ifdef TRACY_ON_DEMAND
 struct LuaZoneState
 {
-    uint32_t counter;
-    bool active;
+    LuaZoneState() = default;
+    ~LuaZoneState() { if( stack ) tracy_free( stack ); }
+    LuaZoneState( const LuaZoneState& ) = delete;
+    LuaZoneState& operator=( const LuaZoneState& ) = delete;
+
+    tracy_force_inline void Push( uint64_t connectionId )
+    {
+        if( size == capacity )
+        {
+            const auto newCapacity = capacity ? capacity * 2 : 16;
+            stack = (uint64_t*)tracy_realloc( stack, newCapacity * sizeof( uint64_t ) );
+            capacity = newCapacity;
+        }
+        stack[size] = connectionId;
+        size++;
+    }
+
+    tracy_force_inline uint64_t Pop()
+    {
+        TRACY_ASSERT( size > 0 );
+        return stack[--size];
+    }
+
+    tracy_force_inline uint64_t Top()
+    {
+        return size ? stack[size - 1] : 0;
+    }
+
+private:
+    uint64_t* stack = nullptr;
+    uint32_t size = 0;
+    uint32_t capacity = 0;
 };
 #endif
 
@@ -362,7 +394,7 @@ public:
 
     static tracy_force_inline void SendFrameMark( const char* name, QueueType type )
     {
-        assert( type == QueueType::FrameMarkMsgStart || type == QueueType::FrameMarkMsgEnd );
+        TRACY_ASSERT( type == QueueType::FrameMarkMsgStart || type == QueueType::FrameMarkMsgEnd );
 #ifdef TRACY_ON_DEMAND
         if( !GetProfiler().IsConnected() ) return;
 #endif
@@ -377,7 +409,7 @@ public:
     {
 #ifndef TRACY_NO_FRAME_IMAGE
         auto& profiler = GetProfiler();
-        assert( profiler.m_frameCount.load( std::memory_order_relaxed ) < (std::numeric_limits<uint32_t>::max)() );
+        TRACY_ASSERT( profiler.m_frameCount.load( std::memory_order_relaxed ) < (std::numeric_limits<uint32_t>::max)() );
 #  ifdef TRACY_ON_DEMAND
         if( !profiler.IsConnected() ) return;
 #  endif
@@ -457,7 +489,7 @@ public:
 
     static tracy_force_inline void LogString( MessageSourceType source, MessageSeverity severity, uint32_t color, int32_t callstack_depth, size_t txtLength, const char* txt )
     {
-        assert( txtLength < (std::numeric_limits<uint16_t>::max)() );
+        TRACY_ASSERT( txtLength < (std::numeric_limits<uint16_t>::max)() );
 #ifdef TRACY_ON_DEMAND
         if( !GetProfiler().IsConnected() ) return;
 #endif
@@ -525,7 +557,7 @@ public:
 
     static tracy_force_inline void MessageAppInfo( const char* txt, size_t size )
     {
-        assert( size < (std::numeric_limits<uint16_t>::max)() );
+        TRACY_ASSERT( size < (std::numeric_limits<uint16_t>::max)() );
         auto ptr = (char*)tracy_malloc( size );
         memcpy( ptr, txt, size );
         TaggedUserlandAddress taggedPtr{ (uint64_t)ptr, MakeMessageMetadata( MessageSourceType::User, MessageSeverity::Info ) };
@@ -755,7 +787,7 @@ public:
 
     static tracy_force_inline void ParameterSetup( uint32_t idx, const char* name, uint8_t type, int32_t val )
     {
-        assert( type >= 0 && type <= 2 );
+        TRACY_ASSERT( type >= 0 && type <= 2 );
         TracyLfqPrepare( QueueType::ParamSetup );
         tracy::MemWrite( &item->paramSetup.idx, idx );
         tracy::MemWrite( &item->paramSetup.name, (uint64_t)name );
@@ -811,7 +843,7 @@ public:
         auto size = vsnprintf( nullptr, 0, fmt, args );
         va_end( args );
         if( size < 0 ) return 0;
-        assert( size < (std::numeric_limits<uint16_t>::max)() );
+        TRACY_ASSERT( size < (std::numeric_limits<uint16_t>::max)() );
 
         char* ptr = (char*)tracy_malloc( size_t( size ) + 1 );
         va_start( args, fmt );
@@ -848,7 +880,7 @@ public:
         auto size = vsnprintf( nullptr, 0, fmt, args );
         va_end( args );
         if( size < 0 ) return;
-        assert( size < (std::numeric_limits<uint16_t>::max)() );
+        TRACY_ASSERT( size < (std::numeric_limits<uint16_t>::max)() );
 
         char* ptr = (char*)tracy_malloc( size_t( size ) + 1 );
         va_start( args, fmt );
@@ -938,7 +970,7 @@ public:
     static tracy_force_inline uint64_t AllocSourceLocation( uint32_t line, const char* source, size_t sourceSz, const char* function, size_t functionSz, const char* name, size_t nameSz, uint32_t color = 0 )
     {
         const auto sz32 = uint32_t( 2 + 4 + 4 + functionSz + 1 + sourceSz + 1 + nameSz );
-        assert( sz32 <= (std::numeric_limits<uint16_t>::max)() );
+        TRACY_ASSERT( sz32 <= (std::numeric_limits<uint16_t>::max)() );
         const auto sz = uint16_t( sz32 );
         auto ptr = (char*)tracy_malloc( sz );
         memcpy( ptr, &sz, 2 );
@@ -993,7 +1025,7 @@ private:
 
     tracy_force_inline bool NeedDataSize( size_t len )
     {
-        assert( len <= TargetFrameSize );
+        TRACY_ASSERT( len <= TargetFrameSize );
         bool ret = true;
         if( m_bufferOffset - m_bufferStart + (int)len > (int)TargetFrameSize )
         {
@@ -1068,7 +1100,7 @@ private:
 
     static tracy_force_inline void SendMemAlloc( QueueType type, const uint32_t thread, const void* ptr, size_t size )
     {
-        assert( type == QueueType::MemAlloc || type == QueueType::MemAllocCallstack || type == QueueType::MemAllocNamed || type == QueueType::MemAllocCallstackNamed );
+        TRACY_ASSERT( type == QueueType::MemAlloc || type == QueueType::MemAllocCallstack || type == QueueType::MemAllocNamed || type == QueueType::MemAllocCallstackNamed );
 
         auto item = GetProfiler().m_serialQueue.prepare_next();
         MemWrite( &item->hdr.type, type );
@@ -1082,7 +1114,7 @@ private:
         }
         else
         {
-            assert( sizeof( size ) == 8 );
+            TRACY_ASSERT( sizeof( size ) == 8 );
             memcpy( &item->memAlloc.size, &size, 4 );
             memcpy( ((char*)&item->memAlloc.size)+4, ((char*)&size)+4, 2 );
         }
@@ -1091,7 +1123,7 @@ private:
 
     static tracy_force_inline void SendMemFree( QueueType type, const uint32_t thread, const void* ptr )
     {
-        assert( type == QueueType::MemFree || type == QueueType::MemFreeCallstack || type == QueueType::MemFreeNamed || type == QueueType::MemFreeCallstackNamed );
+        TRACY_ASSERT( type == QueueType::MemFree || type == QueueType::MemFreeCallstack || type == QueueType::MemFreeNamed || type == QueueType::MemFreeCallstackNamed );
 
         auto item = GetProfiler().m_serialQueue.prepare_next();
         MemWrite( &item->hdr.type, type );
@@ -1103,7 +1135,7 @@ private:
 
     static tracy_force_inline void SendMemDiscard( QueueType type, const uint32_t thread, const char* name )
     {
-        assert( type == QueueType::MemDiscard || type == QueueType::MemDiscardCallstack );
+        TRACY_ASSERT( type == QueueType::MemDiscard || type == QueueType::MemDiscardCallstack );
 
         auto item = GetProfiler().m_serialQueue.prepare_next();
         MemWrite( &item->hdr.type, type );
@@ -1115,7 +1147,7 @@ private:
 
     static tracy_force_inline void SendMemName( const char* name )
     {
-        assert( name );
+        TRACY_ASSERT( name );
         auto item = GetProfiler().m_serialQueue.prepare_next();
         MemWrite( &item->hdr.type, QueueType::MemNamePayload );
         MemWrite( &item->memName.name, (uint64_t)name );
