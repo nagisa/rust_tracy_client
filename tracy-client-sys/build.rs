@@ -62,6 +62,9 @@ fn set_feature_defines(mut c: cc::Build) -> cc::Build {
     if std::env::var_os("CARGO_FEATURE_CONTEXT_SWITCH_TRACING").is_none() {
         c.define("TRACY_NO_CONTEXT_SWITCH", None);
     }
+    if std::env::var_os("CARGO_FEATURE_WAIT_STACKS").is_none() {
+        c.define("TRACY_NO_WAIT_STACKS", None);
+    }
     if std::env::var_os("CARGO_FEATURE_SAMPLING").is_none() {
         c.define("TRACY_NO_SAMPLING", None);
     }

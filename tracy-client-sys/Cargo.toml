@@ -31,7 +31,7 @@ cc = { version = "1.0.83", default-features = false }
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines", "crash-handler" ]
+            "broadcast", "callstack-inlines", "crash-handler", "wait-stacks" ]
 enable = []
 fibers = []
 system-tracing = []
@@ -50,6 +50,7 @@ demangle = []
 verify = []
 debuginfod = []
 crash-handler = []
+wait-stacks = []
 
 [package.metadata.docs.rs]
 all-features = true

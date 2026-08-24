@@ -47,7 +47,7 @@ version = "0.7"
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines", "crash-handler" ]
+            "broadcast", "callstack-inlines", "crash-handler", "wait-stacks" ]
 broadcast = ["sys/broadcast"]
 code-transfer = ["sys/code-transfer"]
 context-switch-tracing = ["sys/context-switch-tracing"]
@@ -66,6 +66,7 @@ demangle = ["sys/demangle", "dep:rustc-demangle"]
 verify = ["sys/verify"]
 debuginfod = ["sys/debuginfod"]
 crash-handler = ["sys/crash-handler"]
+wait-stacks = ["sys/wait-stacks"]
 
 [package.metadata.docs.rs]
 all-features = true
