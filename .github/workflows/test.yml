@@ -32,9 +32,9 @@ jobs:
       - run: cargo check -p tracy-client-sys --features=manual-lifetime
       - run: cargo check -p tracy-client --features=manual-lifetime
       - run: cargo check -p tracing-tracy --features=manual-lifetime
-      - run: cargo check -p tracy-client-sys --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
-      - run: cargo check -p tracy-client --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
-      - run: cargo check -p tracing-tracy --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,delayed-init,callstack-inlines
+      - run: cargo check -p tracy-client-sys --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
+      - run: cargo check -p tracy-client --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
+      - run: cargo check -p tracing-tracy --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
       - run: cargo test ${{ matrix.flags }} -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
