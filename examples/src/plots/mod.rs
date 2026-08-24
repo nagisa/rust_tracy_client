@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::RngExt;
 use std::thread::sleep;
 use std::time::Duration;
 use tracy_client::{Client, PlotConfiguration, PlotFormat, PlotLineStyle, PlotName};
@@ -9,7 +9,7 @@ const PLOT_DISK_SPACE: PlotName = tracy_client::plot_name!("Disk Space");
 
 pub fn main() {
     let client = Client::start();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Anything at runtime needs to be created via PlotName
     let bandwidth = PlotName::new_leak("Bandwidth".to_string());
@@ -31,12 +31,12 @@ pub fn main() {
 
     for _ in 0..50 {
         // You don't need to constantly send a value!
-        if rng.gen_bool(0.75) {
-            client.plot(PLOT_PLAYER_COUNT, rng.gen_range(0..10) as f64);
+        if rng.random_bool(0.75) {
+            client.plot(PLOT_PLAYER_COUNT, rng.random_range(0..10) as f64);
         }
 
-        client.plot(PLOT_DISK_SPACE, rng.gen_range(0..1000000) as f64);
-        client.plot(bandwidth, rng.gen_range(0..100) as f64);
+        client.plot(PLOT_DISK_SPACE, rng.random_range(0..1000000) as f64);
+        client.plot(bandwidth, rng.random_range(0..100) as f64);
 
         sleep(Duration::from_millis(20));
     }

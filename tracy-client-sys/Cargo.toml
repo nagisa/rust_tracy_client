@@ -23,7 +23,7 @@ required-features = ["fibers"]
 [dependencies]
 
 [target."cfg(windows)".dependencies]
-windows-targets = ">=0.48, <0.53"
+windows-targets = ">=0.48, <0.54"
 
 [build-dependencies]
 cc = { version = "1.0.83", default-features = false }
