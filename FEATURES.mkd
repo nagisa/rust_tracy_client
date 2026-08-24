@@ -4,8 +4,7 @@
   `manual-lifetime` feature.
 * `manual-lifetime` – allow for manual initialization and deinitialization of the profiler data
   structures. Corresponds to the `TRACY_MANUAL_LIFETIME` define. `tracy_client::Client`
-  transparently switches to manual lifetime management when this feature is enabled. Implies
-  `delayed-init`.
+  transparently switches to manual lifetime management when this feature is enabled.
 * `system-tracing` – enable capture of system level details. Corresponds to the
   `TRACY_NO_SYSTEM_TRACING` define.
 * `context-switch-tracing` – enable capture of the context switch data. Corresponds to the
@@ -29,8 +28,6 @@
 * `callstack-inlines` - enables resolution of inline frames for call stacks. Disabling it will make
   the profiler use the basic but much faster frame resolution mode. Corresponds to the
   `TRACY_NO_CALLSTACK_INLINES` define.
-* `delayed-init` – initializes trace structures upon a first request, rather than at load time.
-  Corresponds to the `TRACY_DELAYED_INIT` define.
 * `demangle` - requires that the demangling function be defined by the user.
   See the `register_demangler!` macro for more details.
   Corresponds to the `TRACY_DEMANGLE` define.
