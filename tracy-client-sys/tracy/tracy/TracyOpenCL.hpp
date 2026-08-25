@@ -36,19 +36,19 @@ using TracyCLCtx = void*;
 #include <CL/cl.h>
 
 #include <atomic>
-#include <cassert>
 #include <sstream>
 
 #include "Tracy.hpp"
 #include "../client/TracyCallstack.hpp"
 #include "../client/TracyProfiler.hpp"
 #include "../common/TracyAlloc.hpp"
+#include "../common/TracyAssert.hpp"
 
 #define TRACY_CL_TO_STRING_INDIRECT(T) #T
 #define TRACY_CL_TO_STRING(T) TRACY_CL_TO_STRING_INDIRECT(T)
 #define TRACY_CL_ASSERT(p) if(!(p)) {                                                         \
     TracyMessageL( "TRACY_CL_ASSERT failed on " TracyFile ":" TRACY_CL_TO_STRING(TracyLine) );  \
-    assert(false && "TRACY_CL_ASSERT failed");                                                \
+    TRACY_ASSERT(false && "TRACY_CL_ASSERT failed");                                                \
 }
 #define TRACY_CL_CHECK_ERROR(err) if(err != CL_SUCCESS) {                    \
     std::ostringstream oss;                                                  \
@@ -56,7 +56,7 @@ using TracyCLCtx = void*;
         << ": error code " << err;                                           \
     auto msg = oss.str();                                                    \
     TracyMessage(msg.data(), msg.size());                                    \
-    assert(false && "TRACY_CL_CHECK_ERROR failed");                          \
+    TRACY_ASSERT(false && "TRACY_CL_CHECK_ERROR failed");                          \
 }
 
 namespace tracy {
@@ -79,12 +79,12 @@ namespace tracy {
         static constexpr size_t QueryCount = 64 * 1024;
 
         OpenCLCtx(cl_context context, cl_device_id device)
-            : m_contextId(GetGpuCtxCounter().fetch_add(1, std::memory_order_relaxed))
+            : m_contextId(NextGpuContextId())
             , m_head(0)
             , m_tail(0)
         {
             int64_t tcpu, tgpu;
-            TRACY_CL_ASSERT(m_contextId != 255);
+            TRACY_CL_ASSERT(m_contextId != InvalidGpuContextId);
 
             cl_int err = CL_SUCCESS;
             cl_command_queue queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
@@ -164,7 +164,7 @@ namespace tracy {
                     if (eventInfo.event == nullptr) {
                         TracyMessageL("A TracyCLZone must be paird with a TracyCLZoneSetEvent, check your code!");
                     }
-                    assert(false && "clGetEventInfo failed, maybe a TracyCLZone is not paired with TracyCLZoneSetEvent");
+                    TRACY_ASSERT(false && "clGetEventInfo failed, maybe a TracyCLZone is not paired with TracyCLZoneSetEvent");
                     continue;
                 }
                 if (eventStatus != CL_COMPLETE) return;
@@ -178,7 +178,7 @@ namespace tracy {
                 if (err == CL_PROFILING_INFO_NOT_AVAILABLE)
                 {
                     TracyMessageL("command queue is not created with CL_QUEUE_PROFILING_ENABLE flag, check your code!");
-                    assert(false && "command queue is not created with CL_QUEUE_PROFILING_ENABLE flag");
+                    TRACY_ASSERT(false && "command queue is not created with CL_QUEUE_PROFILING_ENABLE flag");
                 }
                 else
                     TRACY_CL_CHECK_ERROR(err);
@@ -200,7 +200,7 @@ namespace tracy {
             }
         }
 
-        tracy_force_inline uint8_t GetId() const
+        tracy_force_inline int32_t GetId() const
         {
             return m_contextId;
         }
@@ -222,7 +222,7 @@ namespace tracy {
 
     private:
 
-        unsigned int m_contextId;
+        int32_t m_contextId;
 
         EventInfo m_query[QueryCount];
         unsigned int m_head; // index at which a new event should be inserted
@@ -251,7 +251,7 @@ namespace tracy {
             MemWrite(&item->gpuZoneBegin.srcloc, (uint64_t)srcLoc);
             MemWrite(&item->gpuZoneBegin.thread, GetThreadHandle());
             MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
+            MemWrite(&item->gpuZoneBegin.context, uint8_t(ctx->GetId()));
             Profiler::QueueSerialFinish();
         }
 
@@ -276,7 +276,7 @@ namespace tracy {
             MemWrite(&item->gpuZoneBegin.srcloc, (uint64_t)srcLoc);
             MemWrite(&item->gpuZoneBegin.thread, GetThreadHandle());
             MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
+            MemWrite(&item->gpuZoneBegin.context, uint8_t(ctx->GetId()));
             Profiler::QueueSerialFinish();
         }
 
@@ -300,7 +300,7 @@ namespace tracy {
             MemWrite(&item->gpuZoneBegin.srcloc, srcloc);
             MemWrite(&item->gpuZoneBegin.thread, GetThreadHandle());
             MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
+            MemWrite(&item->gpuZoneBegin.context, uint8_t(ctx->GetId()));
             Profiler::QueueSerialFinish();
         }
 
@@ -324,7 +324,7 @@ namespace tracy {
             MemWrite(&item->gpuZoneBegin.srcloc, srcloc);
             MemWrite(&item->gpuZoneBegin.thread, GetThreadHandle());
             MemWrite(&item->gpuZoneBegin.queryId, (uint16_t)m_beginQueryId);
-            MemWrite(&item->gpuZoneBegin.context, ctx->GetId());
+            MemWrite(&item->gpuZoneBegin.context, uint8_t(ctx->GetId()));
             Profiler::QueueSerialFinish();
         }
 
@@ -346,7 +346,7 @@ namespace tracy {
             MemWrite(&item->gpuZoneEnd.cpuTime, Profiler::GetTime());
             MemWrite(&item->gpuZoneEnd.thread, GetThreadHandle());
             MemWrite(&item->gpuZoneEnd.queryId, (uint16_t)queryId);
-            MemWrite(&item->gpuZoneEnd.context, m_ctx->GetId());
+            MemWrite(&item->gpuZoneEnd.context, uint8_t(m_ctx->GetId()));
             Profiler::QueueSerialFinish();
         }
 
