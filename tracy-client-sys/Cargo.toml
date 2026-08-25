@@ -23,7 +23,7 @@ required-features = ["fibers"]
 [dependencies]
 
 [target."cfg(windows)".dependencies]
-windows-targets = ">=0.48, <0.53"
+windows-targets = ">=0.48, <0.54"
 
 [build-dependencies]
 cc = { version = "1.0.83", default-features = false }
@@ -31,7 +31,7 @@ cc = { version = "1.0.83", default-features = false }
 [features]
 # Refer to FEATURES.mkd for documentation on features.
 default = [ "enable", "system-tracing", "context-switch-tracing", "sampling", "code-transfer",
-            "broadcast", "callstack-inlines", "crash-handler" ]
+            "broadcast", "callstack-inlines", "crash-handler", "wait-stacks" ]
 enable = []
 fibers = []
 system-tracing = []
@@ -43,14 +43,14 @@ only-localhost = []
 only-ipv4 = []
 timer-fallback = []
 ondemand = []
-manual-lifetime = ["delayed-init"]
-delayed-init = []
+manual-lifetime = []
 callstack-inlines = []
 flush-on-exit = []
 demangle = []
 verify = []
 debuginfod = []
 crash-handler = []
+wait-stacks = []
 
 [package.metadata.docs.rs]
 all-features = true

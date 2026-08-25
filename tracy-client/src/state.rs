@@ -51,8 +51,7 @@ impl Client {
         #[cfg(all(feature = "enable", feature = "manual-lifetime"))]
         return manual_lifetime::is_running();
         #[cfg(all(feature = "enable", not(feature = "manual-lifetime")))]
-        return true; // The client is started in life-before-main (or upon first use in case of
-                     // `delayed-init`
+        return true; // The client is started in life-before-main
     }
 
     /// Is the client running and a profiler connected?
