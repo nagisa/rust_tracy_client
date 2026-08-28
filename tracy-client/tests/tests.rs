@@ -103,6 +103,18 @@ fn nameless_span() {
     set_thread_name!("test thread");
 }
 
+#[cfg(feature = "fibers")]
+fn use_fibers() {
+    const MY_FIBER: FiberName = fiber_name!("my-fiber");
+    let client = Client::start();
+    client.fiber_enter(MY_FIBER);
+    client.fiber_leave();
+
+    let dynamic = FiberName::new_leak("dynamic-fiber".to_string());
+    fiber_enter(dynamic);
+    fiber_leave();
+}
+
 fn gpu() {
     let client = Client::start();
 
@@ -152,6 +164,8 @@ fn main() {
         thread.join().unwrap();
         set_thread_name();
         gpu();
+        #[cfg(feature = "fibers")]
+        use_fibers();
         // Sleep to give time to the client to send the data to the profiler.
         std::thread::sleep(Duration::from_secs(5));
     }
