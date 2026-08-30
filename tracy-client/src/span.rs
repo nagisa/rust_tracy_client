@@ -1,5 +1,4 @@
 use crate::{adjust_stack_depth, Client};
-use std::ffi::CString;
 
 /// A handle representing a span of execution.
 ///
@@ -19,8 +18,6 @@ pub struct Span {
 ///
 /// Construct with the [`span_location!`](crate::span_location) macro.
 pub struct SpanLocation {
-    #[cfg(feature = "enable")]
-    pub(crate) _function_name: CString,
     #[cfg(feature = "enable")]
     pub(crate) data: sys::___tracy_source_location_data,
     #[cfg(not(feature = "enable"))]
@@ -194,45 +191,86 @@ impl Drop for Span {
 ///
 /// The returned `SpanLocation` is allocated statically and is cached between invocations. This
 /// `SpanLocation` will refer to the file and line at which this macro has been invoked, as well as
-/// to the item containing this macro invocation.
+/// to the item containing this macro invocation, unless overridden.
 ///
 /// The resulting value may be used as an argument for the [`Client::span`] method.
 ///
 /// # Example
 ///
 /// ```rust
-/// let location: &'static tracy_client::SpanLocation = tracy_client::span_location!("some name");
+/// use tracy_client::{SpanLocation, span_location};
+///
+/// let location: &'static SpanLocation = span_location!("some name");
+/// // A long-form syntax is also available to specify custom source
+/// // locations; all fields are optional.
+/// let location: &'static SpanLocation = span_location! {
+///     name: "another name",
+///     function: "my::fake::function",
+///     file: "path/to/fake/file.rs",
+///     line: 42,
+///     color: 0x99CC66, // in RGB format
+/// };
 /// ```
 #[macro_export]
 macro_rules! span_location {
-    () => {{
+    ($name: expr) => {
+        $crate::__span_location_helper!([name $name])
+    };
+    ($($field: ident: $value: expr),* $(,)?) => {
+        $crate::__span_location_helper!($([$field $value])*)
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __span_location_helper {
+    (
+        $([name $name: expr])?
+        [function $function: expr]
+        $([file $file: expr])?
+        $([line $line: expr])?
+        $([color $color: expr])?
+    ) => {{
+        static LOC: $crate::internal::SpanLocation =
+            $crate::internal::static_span_location(
+                concat!($function, "\0").as_ptr(),
+                $crate::__span_location_helper!(@name $($name)?),
+                $crate::__span_location_helper!(@file $($file)?),
+                $crate::__span_location_helper!(@line $($line)?),
+                $crate::__span_location_helper!(@color $($color)?),
+            );
+        &LOC
+    }};
+
+    (
+        $([name $name: expr])?
+        $([file $file: expr])?
+        $([line $line: expr])?
+        $([color $color: expr])?
+    ) => {{
         struct S;
         // String processing in `const` when, Oli?
         static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
             $crate::internal::Lazy::new(|| {
                 $crate::internal::make_span_location(
                     $crate::internal::type_name::<S>(),
-                    $crate::internal::null(),
-                    concat!(file!(), "\0").as_ptr(),
-                    line!(),
+                    $crate::__span_location_helper!(@name $($name)?),
+                    $crate::__span_location_helper!(@file $($file)?),
+                    $crate::__span_location_helper!(@line $($line)?),
+                    $crate::__span_location_helper!(@color $($color)?),
                 )
             });
         &*LOC
     }};
-    ($name: expr) => {{
-        struct S;
-        // String processing in `const` when, Oli?
-        static LOC: $crate::internal::Lazy<$crate::internal::SpanLocation> =
-            $crate::internal::Lazy::new(|| {
-                $crate::internal::make_span_location(
-                    $crate::internal::type_name::<S>(),
-                    concat!($name, "\0").as_ptr(),
-                    concat!(file!(), "\0").as_ptr(),
-                    line!(),
-                )
-            });
-        &*LOC
-    }};
+
+    (@name $name: expr) => { concat!($name, "\0").as_ptr() };
+    (@name) => { $crate::internal::null() };
+    (@file $file: expr) => { concat!($file, "\0").as_ptr() };
+    (@file) => { concat!(file!(), "\0").as_ptr() };
+    (@line $line: expr) => { $line };
+    (@line) => { line!() };
+    (@color $color: expr) => { $color };
+    (@color) => { 0 };
 }
 
 /// Start a new Tracy span with function, file, and line determined automatically.
