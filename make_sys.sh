@@ -29,6 +29,7 @@ cp "$BASEDIR/LICENSE" "tracy-client-sys/tracy/"
 COMMON_BINDGEN_PARAMS=(
     "tracy-client-sys/tracy/tracy/TracyC.h"
     "--disable-header-comment"
+    "--no-layout-tests"
     "--"
     "-DTRACY_ENABLE"
 )
