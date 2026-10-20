@@ -70,7 +70,22 @@ type TracyFields<C> = tracing_subscriber::fmt::FormattedFields<<C as Config>::Fo
 
 thread_local! {
     /// A stack of spans currently active on the current thread.
-    static TRACY_SPAN_STACK: VecCell<(Span, u64)> = const { VecCell::new() };
+    static TRACY_SPAN_STACK: SpanStack = const { SpanStack(VecCell::new()) };
+}
+
+/// Stack of spans entered on a thread.
+struct SpanStack(VecCell<(Span, u64)>);
+
+impl Drop for SpanStack {
+    fn drop(&mut self) {
+        while let Some(frame) = self.0.pop() {
+            // Spans still on the stack when the thread exits (e.g. because they were exited on a
+            // different thread) are leaked rather than ended. For the main thread this destructor
+            // runs during process shutdown, after Tracy's profiler has already been destroyed, and
+            // ending a zone then writes into freed memory.
+            std::mem::forget(frame);
+        }
+    }
 }
 
 /// A tracing layer that collects data in Tracy profiling format.
@@ -279,12 +294,12 @@ where
         };
 
         TRACY_SPAN_STACK.with(|s| {
-            s.push(stack_frame);
+            s.0.push(stack_frame);
         });
     }
 
     fn on_exit(&self, id: &Id, _: Context<S>) {
-        let stack_frame = TRACY_SPAN_STACK.with(VecCell::pop);
+        let stack_frame = TRACY_SPAN_STACK.with(|s| s.0.pop());
 
         if let Some((span, span_id)) = stack_frame {
             if id.into_u64() != span_id {
