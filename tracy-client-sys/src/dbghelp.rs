@@ -25,11 +25,7 @@ type BOOL = i32;
 #[allow(clippy::upper_case_acronyms)]
 type HANDLE = *mut core::ffi::c_void;
 #[allow(clippy::upper_case_acronyms)]
-type PWSTR = *mut u16;
-#[allow(clippy::upper_case_acronyms)]
 type PCSTR = *const u8;
-#[allow(clippy::upper_case_acronyms)]
-type PCWSTR = *const u16;
 type WIN32_ERROR = u32;
 #[repr(C)]
 struct SECURITY_ATTRIBUTES {
@@ -39,7 +35,6 @@ struct SECURITY_ATTRIBUTES {
 }
 
 const FALSE: BOOL = 0i32;
-const TRUE: BOOL = 1i32;
 const INFINITE: u32 = u32::MAX;
 const WAIT_FAILED: u32 = 0xFFFFFFFF;
 
@@ -48,13 +43,6 @@ windows_targets::link!("kernel32.dll" "system" fn CreateMutexA(lpmutexattributes
 windows_targets::link!("kernel32.dll" "system" fn GetLastError() -> WIN32_ERROR);
 windows_targets::link!("kernel32.dll" "system" fn WaitForSingleObject(hhandle: HANDLE, dwmilliseconds: u32) -> u32);
 windows_targets::link!("kernel32.dll" "system" fn ReleaseMutex(hmutex: HANDLE) -> BOOL);
-windows_targets::link!("kernel32.dll" "system" fn lstrlenW(lpstring : PCWSTR) -> i32);
-windows_targets::link!("kernel32.dll" "system" fn GetCurrentProcess() -> HANDLE);
-
-windows_targets::link!("dbghelp.dll" "system" fn SymInitializeW(hprocess: HANDLE, usersearchpath: PCWSTR, finvadeprocess: BOOL) -> BOOL);
-windows_targets::link!("dbghelp.dll" "system" fn SymGetSearchPathW(hprocess: HANDLE, searchpatha: PWSTR, searchpathlength: u32) -> BOOL);
-windows_targets::link!("dbghelp.dll" "system" fn SymSetSearchPathW(hprocess: HANDLE, searchpatha: PCWSTR) -> BOOL);
-windows_targets::link!("dbghelp.dll" "system" fn EnumerateLoadedModulesW64(hprocess: HANDLE, enumloadedmodulescallback: Option<unsafe extern "system" fn(modulename: PCWSTR, modulebase: u64, modulesize: u32, usercontext: *const core::ffi::c_void) -> BOOL>, usercontext: *const core::ffi::c_void) -> BOOL);
 
 /// Handle to the shared named Windows mutex that synchronizes access to the `dbghelp.dll` symbol helper,
 /// with the standard library and `backtrace-rs`.
@@ -76,71 +64,6 @@ extern "C" fn RustBacktraceMutexInit() {
         // and normally the handle to the mutex is leaked anyway.
         RUST_BACKTRACE_MUTEX.store(mutex, Ordering::Release);
     }
-
-    // We initialize `dbghelp.dll` symbol handler before Tracy does,
-    // and add the directory of all loaded modules to the symbol search path.
-    // This matches the behavior of the standard library and `backtrace-rs`,
-    // and ensures symbols for backtraces don't break when using this crate.
-    // Note that changing the symbol search path doesn't affect modules that were already loaded.
-    init_dbghelp();
-}
-
-fn init_dbghelp() {
-    unsafe {
-        RustBacktraceMutexLock();
-
-        SymInitializeW(GetCurrentProcess(), std::ptr::null(), FALSE);
-
-        let mut paths = vec![0; 1024];
-        if SymGetSearchPathW(
-            GetCurrentProcess(),
-            paths.as_mut_ptr(),
-            paths.len().try_into().unwrap(),
-        ) == TRUE
-        {
-            paths.truncate(lstrlenW(paths.as_ptr()).try_into().unwrap());
-        } else {
-            // As a fallback, use the current directory as a search path if `SymGetSearchPathW` fails,
-            // which can happen when the buffer wasn't big enough
-            paths = vec!['.' as u16];
-        }
-
-        // add the directory of all loaded modules to the symbol search path
-        if EnumerateLoadedModulesW64(
-            GetCurrentProcess(),
-            Some(loaded_modules_callback),
-            (&mut paths as *mut Vec<u16>).cast(),
-        ) == TRUE
-        {
-            paths.push(0); // add null terminator
-            SymSetSearchPathW(GetCurrentProcess(), paths.as_ptr());
-        }
-
-        RustBacktraceMutexUnlock();
-    }
-}
-
-unsafe extern "system" fn loaded_modules_callback(
-    module_name: PCWSTR,
-    _module_base: u64,
-    _module_size: u32,
-    user_context: *const core::ffi::c_void,
-) -> BOOL {
-    let path = unsafe {
-        std::slice::from_raw_parts(module_name, lstrlenW(module_name).try_into().unwrap())
-    };
-    let Some(last_separator) = path.iter().rposition(|&c| c == '/' as _ || c == '\\' as _) else {
-        return TRUE;
-    };
-    let dir = &path[..last_separator];
-
-    let paths = unsafe { &mut *user_context.cast::<Vec<u16>>().cast_mut() };
-    if paths.split(|&c| c == ';' as _).all(|slice| slice != dir) {
-        paths.push(';' as _);
-        paths.extend(dir);
-    }
-
-    TRUE // continue enumeration
 }
 
 #[no_mangle]
