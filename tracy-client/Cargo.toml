@@ -70,3 +70,6 @@ wait-stacks = ["sys/wait-stacks"]
 
 [package.metadata.docs.rs]
 all-features = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
