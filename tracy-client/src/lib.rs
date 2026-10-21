@@ -27,6 +27,7 @@
 //!
 #![doc = include_str!("../FEATURES.mkd")]
 
+pub use crate::fiber::{fiber_enter, fiber_leave, FiberName};
 pub use crate::frame::{frame_image, frame_mark, Frame, FrameName};
 pub use crate::gpu::{
     GpuContext, GpuContextCreationError, GpuContextType, GpuSpan, GpuSpanCreationError,
@@ -37,6 +38,7 @@ use std::alloc;
 use std::ffi::CString;
 pub use sys;
 
+mod fiber;
 mod frame;
 mod gpu;
 mod plot;
@@ -84,6 +86,12 @@ pub mod internal {
         }
         #[cfg(not(feature = "enable"))]
         crate::SpanLocation { _internal: () }
+    }
+
+    #[inline(always)]
+    #[must_use]
+    pub const unsafe fn create_fiber_name(name: &'static str) -> crate::fiber::FiberName {
+        crate::fiber::FiberName(name)
     }
 
     #[inline(always)]

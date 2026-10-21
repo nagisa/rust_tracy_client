@@ -88,6 +88,15 @@ impl Drop for SpanStack {
     }
 }
 
+#[cfg(feature = "fibers")]
+thread_local! {
+    /// Cache of fiber names, keyed by span name. Bounded by the number of distinct span names.
+    static FIBER_NAMES: std::cell::RefCell<std::collections::HashMap<&'static str, client::FiberName>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+    /// Tracks span nesting depth on this thread for fiber root detection.
+    static SPAN_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// A tracing layer that collects data in Tracy profiling format.
 ///
 /// # Examples
@@ -249,6 +258,25 @@ where
     fn on_enter(&self, id: &Id, ctx: Context<S>) {
         let Some(span) = ctx.span(id) else { return };
 
+        #[cfg(feature = "fibers")]
+        {
+            let depth = SPAN_DEPTH.with(|d| {
+                let depth = d.get();
+                d.set(depth + 1);
+                depth
+            });
+            if depth == 0 {
+                let span_name = span.metadata().name();
+                let fiber_name = FIBER_NAMES.with(|cache| {
+                    let mut cache = cache.borrow_mut();
+                    *cache.entry(span_name).or_insert_with(|| {
+                        client::FiberName::new_leak(span_name.to_string())
+                    })
+                });
+                self.client.fiber_enter(fiber_name);
+            }
+        }
+
         let extensions = span.extensions();
         let fields = extensions.get::<TracyFields<C>>();
         let stack_frame = {
@@ -316,6 +344,18 @@ where
                 "Exiting a tracing span, but got nothing on the tracy span stack!",
             );
         }
+
+        #[cfg(feature = "fibers")]
+        {
+            let depth = SPAN_DEPTH.with(|d| {
+                let depth = d.get().saturating_sub(1);
+                d.set(depth);
+                depth
+            });
+            if depth == 0 {
+                self.client.fiber_leave();
+            }
+        }
     }
 
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
@@ -325,6 +365,7 @@ where
             let buf = mem::take(&mut fields.fields);
             CACHE.with(|cache| drop(StrCacheGuard::new(cache, buf)));
         };
+
     }
 }
 
