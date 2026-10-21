@@ -21,8 +21,9 @@ pub struct Span {
 pub struct SpanLocation {
     #[cfg(feature = "enable")]
     pub(crate) _function_name: CString,
+    /// Gotta have docs
     #[cfg(feature = "enable")]
-    pub(crate) data: sys::___tracy_source_location_data,
+    pub data: sys::___tracy_source_location_data,
     #[cfg(not(feature = "enable"))]
     pub(crate) _internal: (),
 }
