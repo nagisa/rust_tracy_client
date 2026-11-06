@@ -82,12 +82,12 @@ pub struct ___tracy_gpu_time_sync_data {
     pub context: u8,
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct __tracy_lockable_context_data {
     _unused: [u8; 0],
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct __tracy_shared_lockable_context_data {
     _unused: [u8; 0],
 }
@@ -356,7 +356,7 @@ unsafe extern "C" {
     pub fn ___tracy_after_lock_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
 }
 unsafe extern "C" {
-    pub fn ___tracy_after_unlock_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
+    pub fn ___tracy_before_unlock_lockable_ctx(lockdata: *mut __tracy_lockable_context_data);
 }
 unsafe extern "C" {
     pub fn ___tracy_after_try_lock_lockable_ctx(
@@ -398,7 +398,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn ___tracy_after_unlock_shared_lockable_ctx(
+    pub fn ___tracy_before_unlock_shared_lockable_ctx(
         lockdata: *mut __tracy_shared_lockable_context_data,
     );
 }
@@ -419,7 +419,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn ___tracy_after_unlock_shared_shared_lockable_ctx(
+    pub fn ___tracy_before_unlock_shared_shared_lockable_ctx(
         lockdata: *mut __tracy_shared_lockable_context_data,
     );
 }
@@ -441,6 +441,15 @@ unsafe extern "C" {
         name: *const ::std::os::raw::c_char,
         nameSz: usize,
     );
+}
+unsafe extern "C" {
+    pub fn ___tracy_section_enter(category: u16, fmt: *const ::std::os::raw::c_char, ...) -> u32;
+}
+unsafe extern "C" {
+    pub fn ___tracy_section_leave(id: u32);
+}
+unsafe extern "C" {
+    pub fn ___tracy_section_setup(category: u16, fmt: *const ::std::os::raw::c_char, ...);
 }
 unsafe extern "C" {
     pub fn ___tracy_begin_sampling_profiling() -> ::std::os::raw::c_int;
