@@ -67,8 +67,8 @@
 #  include "TracyProfiler.hpp"
 
 #  define DBGHELP_INIT TracyConcat( TRACY_DBGHELP_LOCK, Init() )
-#  define DBGHELP_LOCK TracyConcat( TRACY_DBGHELP_LOCK, Lock() );
-#  define DBGHELP_UNLOCK TracyConcat( TRACY_DBGHELP_LOCK, Unlock() );
+#  define DBGHELP_LOCK TracyConcat( TRACY_DBGHELP_LOCK, Lock() )
+#  define DBGHELP_UNLOCK TracyConcat( TRACY_DBGHELP_LOCK, Unlock() )
 
 extern "C"
 {
@@ -239,7 +239,7 @@ private:
         if( cache->ContainsImage( startAddress ) ) return 0;
 
         const uint32_t headerCount = info->dlpi_phnum;
-        TRACY_ASSERT( headerCount > 0 );
+        if( headerCount == 0 ) return 0;
 
         // headers aren't guaranteed to be in address order; find the max
         uint64_t endAddress = startAddress;
@@ -346,7 +346,13 @@ void DestroyImageCaches()
 }
 
 
-#ifdef __linux__
+#ifdef TRACY_HAS_EXTERNAL_TARGET
+#  include <errno.h>
+#  include <fcntl.h>
+#  include <signal.h>
+#  include <sys/stat.h>
+#  include <sys/uio.h>
+#  include <unistd.h>
 
 static constexpr uint32_t ExtPT_LOAD = 1;
 
@@ -355,22 +361,43 @@ struct ExternalImageEntry
     uint64_t startAddress;
     uint64_t endAddress;
     uint64_t loadBias;
+    uint64_t mapsOffset;
     char* path;
     backtrace_state* btState;
     bool btAttempted;
 };
 
 static FastVector<ExternalImageEntry>* s_extImages = nullptr;
-static pid_t s_externalPid = 0;
-static bool s_extImagesSorted = true;
+static pid_t s_externalTargetPid = 0;
+static char s_externalTargetName[64] = {};
+static uint64_t s_externalTargetExeMtime = 0;
 // Wall-clock second of the last /proc/<pid>/maps re-parse. Used to rate-limit
 // refreshes so addresses that never resolve (JIT, vDSO, stack) do not trigger
 // a full re-parse on every symbolization.
 static int64_t s_lastMapsRefresh = 0;
 
-static uint64_t ReadElfMinLoadVaddr( const char* path )
+static int MakeExternalTargetPath( char* buf, size_t bufSize, const char* targetPath )
 {
-    int fd = open( path, O_RDONLY );
+    const int n = snprintf( buf, bufSize, "/proc/%d/root%s", (int)s_externalTargetPid, targetPath );
+    return ( n < 0 || (size_t)n >= bufSize ) ? -1 : n;
+}
+
+static int OpenExternalImageFile( const char* path, uint64_t mapStart, uint64_t mapEnd )
+{
+    char rootPath[4096];
+    if( MakeExternalTargetPath( rootPath, sizeof( rootPath ), path ) >= 0 )
+    {
+        const int fd = open( rootPath, O_RDONLY );
+        if( fd >= 0 ) return fd;
+    }
+    char mfPath[80];
+    snprintf( mfPath, sizeof( mfPath ), "/proc/%d/map_files/%lx-%lx", (int)s_externalTargetPid, (unsigned long)mapStart, (unsigned long)mapEnd );
+    return open( mfPath, O_RDONLY );
+}
+
+static uint64_t ReadElfMinLoadVaddr( const char* path, uint64_t mapStart, uint64_t mapEnd )
+{
+    const int fd = OpenExternalImageFile( path, mapStart, mapEnd );
     if( fd < 0 ) return UINT64_MAX;
 
     elf_ehdr ehdr;
@@ -411,12 +438,54 @@ static uint64_t ReadElfMinLoadVaddr( const char* path )
     return minVaddr;
 }
 
+static uint64_t ReadElfSegmentLoadBias( const char* path, uint64_t start, uint64_t end, uint64_t offset, uint64_t pageSize )
+{
+    const int fd = OpenExternalImageFile( path, start, end );
+    if( fd < 0 ) return UINT64_MAX;
+
+    elf_ehdr ehdr;
+    if( read( fd, &ehdr, sizeof( ehdr ) ) != sizeof( ehdr ) ||
+        ehdr.e_ident[0] != 0x7f || ehdr.e_ident[1] != 'E' ||
+        ehdr.e_ident[2] != 'L'  || ehdr.e_ident[3] != 'F' ||
+        ehdr.e_ident[4] != 2 ||
+        ehdr.e_phoff == 0 || ehdr.e_phnum == 0 )
+    {
+        close( fd );
+        return UINT64_MAX;
+    }
+
+    if( lseek( fd, ehdr.e_phoff, SEEK_SET ) == (off_t)-1 )
+    {
+        close( fd );
+        return UINT64_MAX;
+    }
+
+    uint64_t loadBias = UINT64_MAX;
+    for( uint16_t i = 0; i < ehdr.e_phnum; i++ )
+    {
+        elf_phdr phdr;
+        if( read( fd, &phdr, sizeof( phdr ) ) != sizeof( phdr ) ) break;
+        if( phdr.p_type != ExtPT_LOAD ) continue;
+        const uint64_t vaddr = static_cast<uint64_t>( phdr.p_vaddr );
+        if( static_cast<uint64_t>( phdr.p_offset ) - ( vaddr & ( pageSize - 1 ) ) == offset )
+        {
+            loadBias = start - ( vaddr & ~( pageSize - 1 ) );
+            break;
+        }
+    }
+
+    close( fd );
+    return loadBias;
+}
+
 static void ParseExternalProcMaps( pid_t pid )
 {
     char mapPath[64];
     snprintf( mapPath, sizeof( mapPath ), "/proc/%d/maps", (int)pid );
     FILE* f = fopen( mapPath, "r" );
     if( !f ) return;
+
+    FastVector<ExternalImageEntry> fresh( 64 );
 
     char line[1024];
     while( fgets( line, sizeof( line ), f ) )
@@ -434,46 +503,48 @@ static void ParseExternalProcMaps( pid_t pid )
         while( *pathname == ' ' || *pathname == '\t' ) pathname++;
         size_t plen = strlen( pathname );
         while( plen > 0 && ( pathname[plen-1] == '\n' || pathname[plen-1] == '\r' ) ) plen--;
+        if( plen >= 10 && strncmp( pathname + plen - 10, " (deleted)", 10 ) == 0 ) plen -= 10;
         pathname[plen] = '\0';
 
         if( plen == 0 || pathname[0] != '/' ) continue;
-        if( std::find_if( s_extImages->begin(), s_extImages->end(), [start]( const ExternalImageEntry& e ) { return e.startAddress == start; } ) != s_extImages->end() ) continue;
 
-        uint64_t minVaddr = ReadElfMinLoadVaddr( pathname );
-        uint64_t loadBias;
-        if( minVaddr == UINT64_MAX )
+        // list is sorted by start address
+        auto it = std::lower_bound( s_extImages->begin(), s_extImages->end(), start,
+            []( const ExternalImageEntry& e, uint64_t a ) { return e.startAddress > a; } );
+        if( it != s_extImages->end() && it->startAddress == start
+            && it->endAddress == end && it->mapsOffset == offset
+            && strcmp( it->path, pathname ) == 0 )
         {
-            loadBias = start;
+            fresh.push_next()[0] = *it;
+            continue;
         }
-        else
+
+        uint64_t pageSize = sysconf( _SC_PAGESIZE );
+        uint64_t loadBias = ReadElfSegmentLoadBias( pathname, start, end, offset, pageSize );
+        if( loadBias == UINT64_MAX )
         {
-            uint64_t pageSize = sysconf( _SC_PAGESIZE );
-            uint64_t alignedVaddr = minVaddr & ~(pageSize - 1);
-            loadBias = start - alignedVaddr - offset;
+            uint64_t minVaddr = ReadElfMinLoadVaddr( pathname, start, end );
+            loadBias = ( minVaddr == UINT64_MAX ) ? start : start - ( minVaddr & ~( pageSize - 1 ) ) - offset;
         }
 
         ExternalImageEntry entry = {
             .startAddress = start,
             .endAddress = end,
             .loadBias = loadBias,
+            .mapsOffset = offset,
             .path = (char*)tracy_malloc( plen + 1 ),
             .btState = nullptr,
             .btAttempted = false
         };
         memcpy( entry.path, pathname, plen + 1 );
-
-        s_extImagesSorted = false;
-        s_extImages->push_next()[0] = entry;
+        fresh.push_next()[0] = entry;
     }
 
     fclose( f );
 
-    if( !s_extImagesSorted )
-    {
-        std::sort( s_extImages->begin(), s_extImages->end(),
-            []( const ExternalImageEntry& a, const ExternalImageEntry& b ) { return a.startAddress > b.startAddress; } );
-        s_extImagesSorted = true;
-    }
+    std::sort( fresh.begin(), fresh.end(),
+        []( const ExternalImageEntry& a, const ExternalImageEntry& b ) { return a.startAddress > b.startAddress; } );
+    s_extImages->swap( fresh );
 }
 
 static const ExternalImageEntry* FindExternalImage( uint64_t address )
@@ -495,13 +566,13 @@ static const ExternalImageEntry* FindExternalImageRefresh( uint64_t address )
     auto entry = FindExternalImage( address );
     if( entry ) return entry;
 
-    if( s_externalPid != 0 )
+    if( s_externalTargetPid != 0 )
     {
         const int64_t now = (int64_t)time( nullptr );
         if( now != s_lastMapsRefresh )
         {
             s_lastMapsRefresh = now;
-            ParseExternalProcMaps( s_externalPid );
+            ParseExternalProcMaps( s_externalTargetPid );
             return FindExternalImage( address );
         }
     }
@@ -517,40 +588,37 @@ static backtrace_state* GetExternalBtState( const ExternalImageEntry* entry )
     auto* e = const_cast<ExternalImageEntry*>( entry );
     if( e->btAttempted ) return e->btState;
     e->btAttempted = true;
-    e->btState = backtrace_create_state_for_file( e->path, 0, ExternalBacktraceErrorCb, nullptr );
+    const size_t rootPathSize = strlen( e->path ) + 32;
+    char* rootPath = (char*)tracy_malloc( rootPathSize );
+    const char* statePath = nullptr;
+    char mfPath[80];
+    if( MakeExternalTargetPath( rootPath, rootPathSize, e->path ) >= 0 )
+    {
+        const int probe = open( rootPath, O_RDONLY );
+        if( probe >= 0 )
+        {
+            close( probe );
+            statePath = rootPath;
+        }
+    }
+    if( !statePath )
+    {
+        snprintf( mfPath, sizeof( mfPath ), "/proc/%d/map_files/%lx-%lx", (int)s_externalTargetPid, (unsigned long)e->startAddress, (unsigned long)e->endAddress );
+        const int probe = open( mfPath, O_RDONLY );
+        if( probe >= 0 )
+        {
+            close( probe );
+            statePath = mfPath;
+        }
+    }
+    if( statePath )
+    {
+        e->btState = backtrace_create_state_for_file( statePath, 0, ExternalBacktraceErrorCb, nullptr );
+    }
+    tracy_free( rootPath );
     return e->btState;
 }
 
-struct ExternalResolveData
-{
-    const char* name;
-    const char* file;
-    uint32_t line;
-    int count;
-};
-
-static int ExternalPcInfoCb( void* data, uintptr_t pc, uintptr_t lowaddr, const char* filename, int lineno, const char* function )
-{
-    auto& rd = *(ExternalResolveData*)data;
-
-    if( rd.count > 0 ) return 1;
-    rd.count++;
-
-    if( function )
-    {
-        const char* demangled = ___tracy_demangle( function );
-        rd.name = demangled ? demangled : function;
-    }
-    else
-    {
-        rd.name = nullptr;
-    }
-
-    rd.file = filename;
-    rd.line = lineno;
-
-    return 0;
-}
 
 struct ExternalSymInfoData
 {
@@ -567,18 +635,143 @@ static void ExternalSymInfoCb( void* data, uintptr_t pc, const char* symname, ui
     sd.symsize = symsize;
 }
 
-void InitExternalImageCache( pid_t pid )
+bool InitExternalTarget( pid_t targetPid )
 {
-    s_externalPid = pid;
+    if( kill( targetPid, 0 ) != 0 )
+    {
+        fprintf( stderr, "Tracy: cannot profile pid %d: %s\n", (int)targetPid, strerror( errno ) );
+        return false;
+    }
+
+    char path[64];
+    snprintf( path, sizeof( path ), "/proc/%d/comm", (int)targetPid );
+    FILE* f = fopen( path, "r" );
+    if( !f )
+    {
+        fprintf( stderr, "Tracy: cannot read %s: %s\n", path, strerror( errno ) );
+        return false;
+    }
+    char comm[64] = {};
+    if( !fgets( comm, sizeof( comm ), f ) )
+    {
+        fclose( f );
+        fprintf( stderr, "Tracy: cannot read %s: %s\n", path, strerror( errno ) );
+        return false;
+    }
+    fclose( f );
+    size_t len = strlen( comm );
+    while( len > 0 && ( comm[len-1] == '\n' || comm[len-1] == '\r' ) ) len--;
+    if( len >= sizeof( s_externalTargetName ) ) len = sizeof( s_externalTargetName ) - 1;
+    memcpy( s_externalTargetName, comm, len );
+    s_externalTargetName[len] = '\0';
+
+    snprintf( path, sizeof( path ), "/proc/%d/exe", (int)targetPid );
+    {
+        const int exeFd = open( path, O_RDONLY );
+        if( exeFd < 0 )
+        {
+            fprintf( stderr, "Tracy: cannot read %s: %s\n", path, strerror( errno ) );
+            return false;
+        }
+        struct stat exeSt;
+        if( fstat( exeFd, &exeSt ) == 0 ) s_externalTargetExeMtime = (uint64_t)exeSt.st_mtime;
+        close( exeFd );
+    }
+
+    s_externalTargetPid = targetPid;
     if( !s_extImages )
     {
         s_extImages = (FastVector<ExternalImageEntry>*)tracy_malloc( sizeof( FastVector<ExternalImageEntry> ) );
         new (s_extImages) FastVector<ExternalImageEntry>( 64 );
     }
-    ParseExternalProcMaps( pid );
+    ParseExternalProcMaps( targetPid );
+    return true;
 }
 
-#endif // __linux__
+uint32_t GetExternalTargetPid()
+{
+    return (uint32_t)s_externalTargetPid;
+}
+
+const char* GetExternalTargetName()
+{
+    return s_externalTargetName;
+}
+
+uint64_t GetExternalTargetExeTime()
+{
+    return s_externalTargetExeMtime;
+}
+
+static bool FindExternalMapping( pid_t pid, uint64_t addr, uint64_t& mapStart, uint64_t& mapEnd, uint64_t& fileOff, char* path, size_t pathSize )
+{
+    char mapPath[64];
+    snprintf( mapPath, sizeof( mapPath ), "/proc/%d/maps", (int)pid );
+    FILE* f = fopen( mapPath, "r" );
+    if( !f ) return false;
+
+    bool found = false;
+    char line[1024];
+    while( fgets( line, sizeof( line ), f ) )
+    {
+        uint64_t start, end, offset;
+        uint32_t devMaj, devMin;
+        uint64_t inode;
+        char perms[8];
+        int consumed = 0;
+
+        if( sscanf( line, "%lx-%lx %7s %lx %x:%x %lu %n", &start, &end, perms, &offset, &devMaj, &devMin, &inode, &consumed ) < 7 ) continue;
+        if( !strchr( perms, 'x' ) ) continue;
+        if( addr < start || addr >= end ) continue;
+
+        char* pathname = line + consumed;
+        while( *pathname == ' ' || *pathname == '\t' ) pathname++;
+        size_t plen = strlen( pathname );
+        while( plen > 0 && ( pathname[plen-1] == '\n' || pathname[plen-1] == '\r' ) ) plen--;
+        pathname[plen] = '\0';
+        if( plen >= 10 && strncmp( pathname + plen - 10, " (deleted)", 10 ) == 0 ) plen -= 10;
+        if( plen == 0 || pathname[0] != '/' ) continue;
+        if( plen >= pathSize ) plen = pathSize - 1;
+        memcpy( path, pathname, plen );
+        path[plen] = '\0';
+
+        mapStart = start;
+        mapEnd = end;
+        fileOff = offset + ( addr - start );
+        found = true;
+        break;
+    }
+
+    fclose( f );
+    return found;
+}
+
+size_t ReadExternalTargetMemory( uint64_t addr, uint32_t size, char* buf )
+{
+    const auto pid = (pid_t)GetExternalTargetPid();
+    if( pid == 0 || size == 0 ) return 0;
+
+    struct iovec local  = { buf, size };
+    struct iovec remote = { (void*)addr, size };
+    if( process_vm_readv( pid, &local, 1, &remote, 1, 0 ) == (ssize_t)size ) return size;
+
+    uint64_t mapStart = 0, mapEnd = 0, fileOff = 0;
+    char path[1024] = {};
+    if( FindExternalMapping( pid, addr, mapStart, mapEnd, fileOff, path, sizeof( path ) ) && addr + size <= mapEnd )
+    {
+        const int fd = OpenExternalImageFile( path, mapStart, mapEnd );
+        if( fd >= 0 )
+        {
+            const ssize_t rd = pread( fd, buf, size, (off_t)fileOff );
+            close( fd );
+            if( rd == (ssize_t)size ) return size;
+        }
+    }
+
+    return 0;
+}
+
+#endif // TRACY_HAS_EXTERNAL_TARGET
 
 
 // when "TRACY_SYMBOL_OFFLINE_RESOLVE" is set, instead of fully resolving symbols at runtime,
@@ -1445,7 +1638,7 @@ void EndCallstack()
 #endif
 }
 
-#ifdef __linux__
+#ifdef TRACY_HAS_EXTERNAL_TARGET
 static const char* DecodeCallstackPtrFastExternal( uint64_t ptr )
 {
     static char ret[1024];
@@ -1484,8 +1677,8 @@ const char* DecodeCallstackPtrFast( uint64_t ptr )
 {
     static char ret[1024];
 
-#ifdef __linux__
-    if( s_externalPid != 0 && s_extImages ) return DecodeCallstackPtrFastExternal( ptr );
+#ifdef TRACY_HAS_EXTERNAL_TARGET
+    if( s_externalTargetPid != 0 && s_extImages ) return DecodeCallstackPtrFastExternal( ptr );
 #endif
 
     auto vptr = (void*)ptr;
@@ -1535,7 +1728,7 @@ static void SymbolAddressErrorCb( void* data, const char* /*msg*/, int /*errnum*
     sym.needFree = false;
 }
 
-#ifdef __linux__
+#ifdef TRACY_HAS_EXTERNAL_TARGET
 static CallstackSymbolData DecodeSymbolAddressExternal( uint64_t ptr )
 {
     CallstackSymbolData sym;
@@ -1559,8 +1752,8 @@ CallstackSymbolData DecodeSymbolAddress( uint64_t ptr )
 {
     CallstackSymbolData sym;
 
-#ifdef __linux__
-    if( s_externalPid != 0 && s_extImages ) return DecodeSymbolAddressExternal( ptr );
+#ifdef TRACY_HAS_EXTERNAL_TARGET
+    if( s_externalTargetPid != 0 && s_extImages ) return DecodeSymbolAddressExternal( ptr );
 #endif
 
     if( cb_bts )
@@ -1685,104 +1878,126 @@ void GetSymbolForOfflineResolve(void* address, uint64_t imageBaseAddress, Callst
     cbEntry.line = 0;
 }
 
-#ifdef __linux__
-CallstackEntryData DecodeCallstackPtrExternal( uint64_t ptr )
+#ifdef TRACY_HAS_EXTERNAL_TARGET
+static int ExternalCallstackDataCb( void* data, uintptr_t /*pc*/, uintptr_t lowaddr, const char* fn, int lineno, const char* function )
 {
-    const auto* extImg = FindExternalImageRefresh( ptr );
-    if( extImg )
+    auto* img = (const ExternalImageEntry*)data;
+
+    cb_data[cb_num].symLen = 0;
+    cb_data[cb_num].symAddr = (uint64_t)img->loadBias + (uint64_t)lowaddr;
+
+    if( !fn && !function )
     {
-        const char* imageName = extImg->path;
-
-        // Convert VMA (target process virtual address) to ELF virtual address.
-        // elf_vaddr = vma - load_bias
-        // libbacktrace indexes DWARF data by ELF virtual address when
-        // the backtrace_state is created from a file (base_address=0).
-        const auto elfVaddr = (uintptr_t)( ptr - extImg->loadBias );
-
-        auto* bts = GetExternalBtState( extImg );
-        if( bts )
+        // no symbol from pcinfo: name stays null, repaired from the symtab by ResolveExternalCallstack
+        cb_data[cb_num].name = nullptr;
+        cb_data[cb_num].file = nullptr;
+        cb_data[cb_num].line = 0;
+    }
+    else
+    {
+        if( !fn ) fn = "[unknown]";
+        if( !function )
         {
-            // Try DWARF-based resolution
-            ExternalResolveData rd = {};
-            backtrace_pcinfo( bts, elfVaddr, ExternalPcInfoCb, ExternalBacktraceErrorCb, &rd );
+            function = "[unknown]";
+        }
+        else
+        {
+            const char* demangled = ___tracy_demangle( function );
+            if( demangled ) function = demangled;
+        }
 
-            if( rd.name || rd.file )
-            {
-                cb_num = 1;
-                if( rd.name )
-                {
-                    const auto len = std::min<size_t>( strlen( rd.name ), std::numeric_limits<uint16_t>::max() );
-                    cb_data[0].name = CopyStringFast( rd.name, len );
-                }
-                else
-                {
-                    cb_data[0].name = CopyStringFast( "[unknown]" );
-                }
-                if( rd.file )
-                {
-                    cb_data[0].file = NormalizePath( rd.file );
-                    if( !cb_data[0].file ) cb_data[0].file = CopyStringFast( rd.file );
-                }
-                else
-                {
-                    cb_data[0].file = CopyStringFast( "[unknown]" );
-                }
-                cb_data[0].line = rd.line;
-                cb_data[0].symLen = 0;
-                cb_data[0].symAddr = elfVaddr;
+        const auto len = std::min<size_t>( strlen( function ), std::numeric_limits<uint16_t>::max() );
+        cb_data[cb_num].name = CopyStringFast( function, len );
+        cb_data[cb_num].file = NormalizePath( fn );
+        if( !cb_data[cb_num].file ) cb_data[cb_num].file = CopyStringFast( fn );
+        cb_data[cb_num].line = lineno;
+    }
 
-                // Try to get symbol size info
-                ExternalSymInfoData sid = {};
-                backtrace_syminfo( bts, elfVaddr, ExternalSymInfoCb, ExternalBacktraceErrorCb, &sid );
-                if( sid.symsize > 0 )
-                {
-                    cb_data[0].symLen = (uint32_t)sid.symsize;
-                    cb_data[0].symAddr = (uint64_t)sid.symval;
-                }
+    if( ++cb_num >= MaxCbTrace )
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
 
-                // If DWARF gave us no function name, try the symbol table
-                if( !rd.name && sid.symname )
-                {
-                    tracy_free_fast( (void*)cb_data[0].name );
-                    const char* demangled = ___tracy_demangle( sid.symname );
-                    if( demangled )
-                    {
-                        cb_data[0].name = CopyStringFast( demangled );
-                    }
-                    else
-                    {
-                        cb_data[0].name = CopyStringFast( sid.symname );
-                    }
-                }
+static void ExternalPcinfoErrorCb( void* /*data*/, const char* /*msg*/, int /*errnum*/ )
+{
+    for( int i=0; i<cb_num; i++ )
+    {
+        tracy_free_fast( (void*)cb_data[i].name );
+        tracy_free_fast( (void*)cb_data[i].file );
+    }
+    cb_num = 0;
+}
 
-                return { cb_data, 1, imageName ? imageName : "[unknown]" };
-            }
+static CallstackEntryData ResolveExternalCallstack( const ExternalImageEntry* img, uint64_t vma )
+{
+    const char* imageName = img->path ? img->path : "[unknown]";
 
-            // DWARF resolution failed; try symtab-only fallback
+    const auto elfVaddr = (uintptr_t)( vma - img->loadBias );
+    auto* bts = GetExternalBtState( img );
+
+    if( bts )
+    {
+        cb_num = 0;
+        backtrace_pcinfo( bts, elfVaddr, ExternalCallstackDataCb, ExternalPcinfoErrorCb, const_cast<ExternalImageEntry*>( img ) );
+
+        if( cb_num > 0 )
+        {
             ExternalSymInfoData sid = {};
             backtrace_syminfo( bts, elfVaddr, ExternalSymInfoCb, ExternalBacktraceErrorCb, &sid );
             if( sid.symname )
             {
-                cb_num = 1;
-                const char* demangled = ___tracy_demangle( sid.symname );
-                cb_data[0].name = CopyStringFast( demangled ? demangled : sid.symname );
-                cb_data[0].file = CopyStringFast( imageName ? imageName : "[unknown]" );
-                cb_data[0].line = 0;
-                cb_data[0].symLen = (uint32_t)sid.symsize;
-                cb_data[0].symAddr = (uint64_t)sid.symval;
-                return { cb_data, 1, imageName ? imageName : "[unknown]" };
+                cb_data[cb_num-1].symLen = (uint32_t)sid.symsize;
+                cb_data[cb_num-1].symAddr = (uint64_t)img->loadBias + (uint64_t)sid.symval;
+                if( !cb_data[cb_num-1].name )
+                {
+                    const char* demangled = ___tracy_demangle( sid.symname );
+                    cb_data[cb_num-1].name = CopyStringFast( demangled ? demangled : sid.symname );
+                    cb_data[cb_num-1].file = CopyStringFast( imageName );
+                }
             }
+            else if( !cb_data[cb_num-1].name )
+            {
+                cb_data[cb_num-1].name = CopyStringFast( "[unresolved]" );
+                cb_data[cb_num-1].file = CopyStringFast( imageName );
+                cb_data[cb_num-1].symLen = 0;
+                cb_data[cb_num-1].symAddr = vma;
+            }
+            return { cb_data, uint8_t( cb_num ), imageName };
         }
 
-        // Fallback: return unresolved with offset
-        cb_num = 1;
-        cb_data[0].name = CopyStringFast( "[unresolved]" );
-        cb_data[0].file = CopyStringFast( imageName ? imageName : "[unknown]" );
-        cb_data[0].line = 0;
-        cb_data[0].symLen = 0;
-        cb_data[0].symAddr = elfVaddr;
-        return { cb_data, 1, imageName ? imageName : "[unknown]" };
+        ExternalSymInfoData sid = {};
+        backtrace_syminfo( bts, elfVaddr, ExternalSymInfoCb, ExternalBacktraceErrorCb, &sid );
+        if( sid.symname )
+        {
+            cb_num = 1;
+            const char* demangled = ___tracy_demangle( sid.symname );
+            cb_data[0].name = CopyStringFast( demangled ? demangled : sid.symname );
+            cb_data[0].file = CopyStringFast( imageName );
+            cb_data[0].line = 0;
+            cb_data[0].symLen = (uint32_t)sid.symsize;
+            cb_data[0].symAddr = (uint64_t)img->loadBias + (uint64_t)sid.symval;
+            return { cb_data, 1, imageName };
+        }
     }
+
+    cb_num = 1;
+    cb_data[0].name = CopyStringFast( "[unresolved]" );
+    cb_data[0].file = CopyStringFast( imageName );
+    cb_data[0].line = 0;
+    cb_data[0].symLen = 0;
+    cb_data[0].symAddr = vma;
+    return { cb_data, 1, imageName };
+}
+
+CallstackEntryData DecodeCallstackPtrExternal( uint64_t ptr )
+{
+    const auto* extImg = FindExternalImageRefresh( ptr );
+    if( extImg ) return ResolveExternalCallstack( extImg, ptr );
 
     // Address doesn't belong to any known mapping
     cb_num = 1;
@@ -1800,8 +2015,8 @@ CallstackEntryData DecodeCallstackPtr( uint64_t ptr )
     InitAllocator();
     if( !IsKernelAddress( ptr ) )
     {
-#ifdef __linux__
-        if( s_externalPid != 0 && s_extImages ) return DecodeCallstackPtrExternal( ptr );
+#ifdef TRACY_HAS_EXTERNAL_TARGET
+        if( s_externalTargetPid != 0 && s_extImages ) return DecodeCallstackPtrExternal( ptr );
 #endif
 
         const char* imageName = nullptr;
