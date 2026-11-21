@@ -41,7 +41,7 @@ package = "tracy-client-sys"
 version = ">=0.23.0, <0.31.0" # AUTO-UPDATE
 default-features = false
 
-[target.'cfg(loom)'.dependencies.loom]
+[target.'cfg(loom)'.dev-dependencies.loom]
 version = "0.7"
 
 [features]
