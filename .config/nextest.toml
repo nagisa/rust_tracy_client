@@ -1,0 +1,24 @@
+experimental = ["wrapper-scripts"]
+
+[profile.default]
+slow-timeout = { period = "10s", terminate-after = 1 }
+
+[profile.ci]
+
+[scripts.wrapper.tracy-capture]
+command = { command-line = ".github/tracy-capture-wrapper.sh", relative-to = "workspace-root" }
+
+[scripts.wrapper.cdb]
+command = { command-line = ".github/cdb-runner.cmd", relative-to = "workspace-root" }
+
+[[profile.ci.scripts]]
+# `tracy-capture` never completes for traces containing zones that are not ended, leaving the
+# client waiting for it forever. `exit_in_different_thread` leaks such a zone on purpose.
+filter = 'not (package(tracing-tracy) and test(=tests::exit_in_different_thread))'
+platform = 'cfg(unix)'
+run-wrapper = 'tracy-capture'
+
+[[profile.ci.scripts]]
+filter = 'all()'
+platform = 'cfg(windows)'
+run-wrapper = 'cdb'

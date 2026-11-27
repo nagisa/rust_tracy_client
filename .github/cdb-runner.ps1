@@ -1,7 +1,5 @@
-# Cargo `runner` that executes a test binary under cdb, so that crashes that only reproduce in CI
-# print stack traces of the faulting thread and of all other threads.
-#
-# Usage: CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUNNER="pwsh -NoProfile -File <path>\cdb-runner.ps1"
+# nextest wrapper script that executes a test binary under cdb, so that crashes that only reproduce
+# in CI print stack traces of the faulting thread and of all other threads.
 #
 # Exits with the debuggee's exit code, or 1 if it crashed. A full dump of a crashed process is
 # written to `$env:RUNNER_TEMP\dumps` (or `$env:TEMP\dumps` outside of GitHub Actions).
@@ -74,7 +72,7 @@ q
 q
 "@ | Set-Content -Encoding ascii $exitScript
 
-& $cdb -lines -cf $startScript $exe @testArgs
+& $cdb -lines -y (Split-Path $exe) -cf $startScript $exe @testArgs
 $cdbExit = $LASTEXITCODE
 
 if (Test-Path $crashLog) {

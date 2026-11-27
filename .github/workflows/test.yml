@@ -14,17 +14,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_toolchain: [nightly, stable, 1.85.0]
+        rust_toolchain: [nightly, stable, 1.95.0]
         os: [ubuntu-latest, windows-latest, macOS-latest]
     timeout-minutes: 20
+    env:
+      NEXTEST_PROFILE: ci
     steps:
       - uses: actions/checkout@v3
       - run: rustup install ${{ matrix.rust_toolchain }} --profile=minimal
       - run: rustup default ${{ matrix.rust_toolchain }}
-      - if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUNNER=pwsh -NoProfile -File $env:GITHUB_WORKSPACE\.github\cdb-runner.ps1" >> $env:GITHUB_ENV
       # FIXME: perhaps make this into a scrupt?
       - run: cargo check -p tracy-client-sys
       - run: cargo check -p tracy-client
@@ -39,18 +37,31 @@ jobs:
       - run: cargo check -p tracy-client-sys --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
       - run: cargo check -p tracy-client --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
       - run: cargo check -p tracing-tracy --features=enable,fibers,system-tracing,context-switch-tracing,sampling,code-transfer,broadcast,only-localhost,only-ipv4,timer-fallback,ondemand,manual-lifetime,callstack-inlines,wait-stacks
-      - run: cargo test ${{ matrix.flags }} -- --nocapture
+      - uses: taiki-e/install-action@nextest
+      - if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          version=$(sed -nE 's/.*(Major|Minor|Patch) = ([0-9]+);.*/\2/p' \
+                      tracy-client-sys/tracy/common/TracyVersion.hpp | paste -sd.)
+          curl -sSfL "https://github.com/wolfpld/tracy/releases/download/v$version/linux-$version.zip" \
+            -o "$RUNNER_TEMP/tracy.zip"
+          unzip -o "$RUNNER_TEMP/tracy.zip" tracy-capture tracy-csvexport -d "$RUNNER_TEMP/tracy"
+          chmod +x "$RUNNER_TEMP/tracy/tracy-capture" "$RUNNER_TEMP/tracy/tracy-csvexport"
+          echo "TRACY_TOOLS_DIR=$RUNNER_TEMP/tracy" >> "$GITHUB_ENV"
+      - run: cargo nextest run --workspace ${{ matrix.flags }} --no-capture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
-      - run: cargo test ${{ matrix.flags }} --release -- --nocapture
+      - run: cargo nextest run --workspace ${{ matrix.flags }} --release --no-capture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
-      - run: cargo test ${{ matrix.flags }} --features=manual-lifetime -- --nocapture
+      - run: cargo nextest run --workspace ${{ matrix.flags }} --features=manual-lifetime,fibers --no-capture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
-      - run: cargo test -p tracy-client --features=manual-lifetime --lib --release
+      - run: cargo test --workspace ${{ matrix.flags }} --doc
+      - run: cargo nextest run -p tracy-client --features=manual-lifetime --lib --release
         env:
           RUSTFLAGS: --cfg loom
+          TRACY_TOOLS_DIR: ""
 
   doc:
     runs-on: ubuntu-latest

@@ -377,14 +377,6 @@ impl Visit for TracyEventFieldVisitor<'_> {
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-fn main() {
-    if std::env::args_os().any(|p| p == std::ffi::OsStr::new("--bench")) {
-        tests::bench();
-    } else {
-        tests::test();
-    }
-}
 
 mod utils {
     use crate::MAX_CACHE_SIZE;

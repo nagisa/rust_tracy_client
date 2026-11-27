@@ -1,11 +1,10 @@
-use std::time::Duration;
-
 use tracy_client::*;
 
 #[global_allocator]
 static GLOBAL: ProfiledAllocator<std::alloc::System> =
     ProfiledAllocator::new(std::alloc::System, 100);
 
+#[test]
 fn basic_zone() {
     let client = Client::start();
     let span = client.span(span_location!("basic_zone"), 100);
@@ -16,6 +15,7 @@ fn basic_zone() {
     }
 }
 
+#[test]
 fn alloc_zone() {
     let client = Client::start();
     let span = client.span_alloc(Some("alloc_zone"), "alloc_zone", file!(), line!(), 100);
@@ -24,6 +24,7 @@ fn alloc_zone() {
     span.emit_text("some text");
 }
 
+#[test]
 fn finish_frameset() {
     let client = Client::start();
     for _ in 0..10 {
@@ -32,6 +33,7 @@ fn finish_frameset() {
     frame_mark();
 }
 
+#[test]
 fn finish_secondary_frameset() {
     let client = Client::start();
     for _ in 0..5 {
@@ -40,6 +42,7 @@ fn finish_secondary_frameset() {
     secondary_frame_mark!("secondary frame macro");
 }
 
+#[test]
 fn non_continuous_frameset() {
     const NON_CONTINUOUS: FrameName = frame_name!("non continuous");
     let client = Client::start();
@@ -47,6 +50,7 @@ fn non_continuous_frameset() {
     let _ = non_continuous_frame!("non continuous macro");
 }
 
+#[test]
 fn plot_something() {
     static TEMPERATURE: PlotName = plot_name!("temperature");
     let client = Client::start();
@@ -57,6 +61,7 @@ fn plot_something() {
     plot!("temperature", 42.0);
 }
 
+#[test]
 fn allocations() {
     let mut strings = Vec::new();
     for i in 0..100 {
@@ -76,12 +81,14 @@ fn fib(i: u16) -> u64 {
     result
 }
 
+#[test]
 fn message() {
     let client = Client::start();
     client.message("test message", 100);
     client.message("test message without stack", 0);
 }
 
+#[test]
 fn tls_confusion() {
     let client = Client::start();
     let t1 = std::thread::spawn(move || {
@@ -91,11 +98,13 @@ fn tls_confusion() {
     let _ = Client::start();
 }
 
+#[test]
 fn set_thread_name() {
     let _client = Client::start();
     set_thread_name!("test thread");
 }
 
+#[test]
 fn nameless_span() {
     let client = Client::start();
     let _ = span!();
@@ -103,6 +112,7 @@ fn nameless_span() {
     set_thread_name!("test thread");
 }
 
+#[test]
 fn gpu() {
     let client = Client::start();
 
@@ -132,24 +142,11 @@ fn gpu() {
     span2.upload_timestamp_end(130_000);
 }
 
-fn main() {
-    basic_zone();
-    alloc_zone();
-    finish_frameset();
-    finish_secondary_frameset();
-    non_continuous_frameset();
-    plot_something();
-    message();
-    allocations();
-    tls_confusion();
-    nameless_span();
+#[test]
+fn spans_in_another_thread() {
     let thread = std::thread::spawn(|| {
         let _client = Client::start();
         fib(25);
     });
     thread.join().unwrap();
-    set_thread_name();
-    gpu();
-    // Sleep to give time to the client to send the data to the profiler.
-    std::thread::sleep(Duration::from_secs(5));
 }
