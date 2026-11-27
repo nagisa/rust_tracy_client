@@ -1,0 +1,14 @@
+experimental = ["wrapper-scripts"]
+
+[profile.default]
+slow-timeout = { period = "10s", terminate-after = 1 }
+
+[scripts.wrapper.tracy-capture]
+command = { command-line = ".config/tracy-capture-wrapper.sh", relative-to = "workspace-root" }
+
+[[profile.default.scripts]]
+# `tracy-capture` never completes for traces containing zones that are not ended, leaving the
+# client waiting for it forever. `exit_in_different_thread` leaks such a zone on purpose.
+filter = 'not (package(tracing-tracy) and test(=tests::exit_in_different_thread))'
+platform = 'cfg(unix)'
+run-wrapper = 'tracy-capture'
