@@ -133,26 +133,23 @@ fn gpu() {
 }
 
 fn main() {
-    #[cfg(not(loom))]
-    {
-        basic_zone();
-        alloc_zone();
-        finish_frameset();
-        finish_secondary_frameset();
-        non_continuous_frameset();
-        plot_something();
-        message();
-        allocations();
-        tls_confusion();
-        nameless_span();
-        let thread = std::thread::spawn(|| {
-            let _client = Client::start();
-            fib(25);
-        });
-        thread.join().unwrap();
-        set_thread_name();
-        gpu();
-        // Sleep to give time to the client to send the data to the profiler.
-        std::thread::sleep(Duration::from_secs(5));
-    }
+    basic_zone();
+    alloc_zone();
+    finish_frameset();
+    finish_secondary_frameset();
+    non_continuous_frameset();
+    plot_something();
+    message();
+    allocations();
+    tls_confusion();
+    nameless_span();
+    let thread = std::thread::spawn(|| {
+        let _client = Client::start();
+        fib(25);
+    });
+    thread.join().unwrap();
+    set_thread_name();
+    gpu();
+    // Sleep to give time to the client to send the data to the profiler.
+    std::thread::sleep(Duration::from_secs(5));
 }

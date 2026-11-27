@@ -100,9 +100,9 @@ mod manual_lifetime {
     ///
     /// All that seems like a major pain to implement, and so we’ll punt on disabling entirely until
     /// somebody comes with a good use-case warranting that sort of complexity.
-    #[cfg(not(loom))]
+    #[cfg(not(all(loom, test)))]
     static CLIENT_STATE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    #[cfg(loom)]
+    #[cfg(all(loom, test))]
     loom::lazy_static! {
         static ref CLIENT_STATE: loom::sync::atomic::AtomicUsize =
             loom::sync::atomic::AtomicUsize::new(0);
@@ -113,16 +113,44 @@ mod manual_lifetime {
     const STATE_ENABLING: usize = STATE_DISABLED + STATE_STEP;
     const STATE_ENABLED: usize = STATE_ENABLING + STATE_STEP;
 
+    #[cfg(not(all(loom, test)))]
+    unsafe fn startup_profiler() {
+        unsafe { sys::___tracy_startup_profiler() }
+    }
+
+    // Tracy cannot run under loom (and cannot be restarted between loom iterations anyway), so
+    // in loom tests we instead record the startup in a loom-tracked cell. This lets loom verify
+    // both that the profiler is started exactly once and that any thread obtaining a `Client`
+    // happens-after the startup.
+    #[cfg(all(loom, test))]
+    loom::lazy_static! {
+        static ref PROFILER_STARTED: loom::cell::UnsafeCell<bool> =
+            loom::cell::UnsafeCell::new(false);
+    }
+
+    #[cfg(all(loom, test))]
+    unsafe fn startup_profiler() {
+        PROFILER_STARTED.with_mut(|started| unsafe {
+            assert!(!*started, "profiler started more than once");
+            *started = true;
+        });
+    }
+
+    #[cfg(all(loom, test))]
+    fn assert_profiler_started() {
+        PROFILER_STARTED.with(|started| assert!(unsafe { *started }, "profiler not started"));
+    }
+
     #[inline(always)]
     fn spin_loop() {
-        #[cfg(loom)]
+        #[cfg(all(loom, test))]
         loom::thread::yield_now();
-        #[cfg(not(loom))]
+        #[cfg(not(all(loom, test)))]
         std::hint::spin_loop();
     }
 
     pub(super) fn start() -> super::Client {
-        let mut old_state = CLIENT_STATE.load(Ordering::Relaxed);
+        let mut old_state = CLIENT_STATE.load(Ordering::Acquire);
         loop {
             match old_state {
                 STATE_ENABLED => return super::Client(()),
@@ -137,7 +165,7 @@ mod manual_lifetime {
                         old_state,
                         STATE_ENABLING,
                         Ordering::Relaxed,
-                        Ordering::Relaxed,
+                        Ordering::Acquire,
                     );
                     if let Err(next_old_state) = result {
                         old_state = next_old_state;
@@ -155,7 +183,7 @@ mod manual_lifetime {
                             // manage.
                             //
                             // TODO: we _could_ define `ENABLE_STATE` in the `-sys` crate...
-                            let () = sys::___tracy_startup_profiler();
+                            let () = startup_profiler();
                             CLIENT_STATE.store(STATE_ENABLED, Ordering::Release);
                             return super::Client(());
                         }
@@ -167,7 +195,9 @@ mod manual_lifetime {
     }
 
     pub(super) fn is_running() -> bool {
-        return CLIENT_STATE.load(Ordering::Relaxed) == STATE_ENABLED;
+        // Acquire pairs with the Release store after the profiler startup, so that anybody
+        // observing the client as running also observes the profiler as having been started.
+        return CLIENT_STATE.load(Ordering::Acquire) == STATE_ENABLED;
     }
 
     #[cfg(test)]
@@ -179,6 +209,69 @@ mod manual_lifetime {
             assert_eq!(0, STATE_DISABLED);
             assert_eq!(STATE_DISABLED.wrapping_add(STATE_STEP), STATE_ENABLING);
             assert_eq!(STATE_ENABLING.wrapping_add(STATE_STEP), STATE_ENABLED);
+        }
+    }
+
+    #[cfg(all(loom, test))]
+    mod loom_test {
+        use super::assert_profiler_started;
+        use crate::Client;
+        use loom::thread;
+
+        fn model<F>(f: F)
+        where
+            F: Fn() + Sync + Send + 'static,
+        {
+            let mut builder = loom::model::Builder::new();
+            builder.preemption_bound = Some(3);
+            builder.check(f);
+        }
+
+        fn start() -> Client {
+            let client = Client::start();
+            assert!(Client::is_running());
+            assert_profiler_started();
+            client
+        }
+
+        #[test]
+        fn single_thread() {
+            model(|| {
+                let client = start();
+                drop(client);
+                let client = start();
+                drop(client);
+            });
+        }
+
+        #[test]
+        fn two_threads() {
+            model(|| {
+                let t1 = thread::spawn(|| drop(start()));
+                drop(start());
+                t1.join().unwrap();
+            });
+        }
+
+        #[test]
+        fn two_threads_with_clones() {
+            model(|| {
+                let t1 = thread::spawn(move || {
+                    let client = start();
+                    let client2 = client.clone();
+                    assert!(Client::is_running());
+                    drop(client);
+                    assert!(Client::is_running());
+                    drop(client2);
+                });
+                let client = start();
+                let client2 = client.clone();
+                assert!(Client::is_running());
+                drop(client2);
+                assert!(Client::is_running());
+                drop(client);
+                t1.join().unwrap();
+            });
         }
     }
 }

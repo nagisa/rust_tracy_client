@@ -48,6 +48,9 @@ jobs:
       - run: cargo test ${{ matrix.flags }} --features=manual-lifetime -- --nocapture
         env:
           TRACY_NO_INVARIANT_CHECK: 1
+      - run: cargo test -p tracy-client --features=manual-lifetime --lib --release
+        env:
+          RUSTFLAGS: --cfg loom
 
   doc:
     runs-on: ubuntu-latest
