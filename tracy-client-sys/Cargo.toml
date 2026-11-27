@@ -17,8 +17,6 @@ Low level bindings to the client libraries for the Tracy profiler
 [[test]]
 name = "tests"
 path = "tests.rs"
-harness = false
-required-features = ["fibers"]
 
 [dependencies]
 

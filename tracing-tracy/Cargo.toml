@@ -13,9 +13,9 @@ description = """
 Inspect tracing-enabled Rust applications with Tracy
 """
 
-[lib]
+[[bench]]
+name = "layer"
 harness = false
-bench = true
 
 [dependencies]
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
